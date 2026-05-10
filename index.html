@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fueling Needs Calculator for Running</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fc;
+            border-radius: 4px;
+            display: none;
+        }
+        .fuel-options {
+            margin-top: 20px;
+        }
+        .fuel-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .fuel-item input {
+            width: 50px;
+        }
+        .custom-fuel {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fueling Needs Calculator for Running</h1>
+
+        <div class="form-group">
+            <label for="training-type">Training Type:</label>
+            <select id="training-type">
+                <option value="easy">Easy Run</option>
+                <option value="moderate">Moderate Run</option>
+                <option value="hard">Hard Workout</option>
+                <option value="race">Race</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="duration">Duration (hours):</label>
+            <input type="number" id="duration" min="0.5" max="6" step="0.1" value="1">
+        </div>
+
+        <div class="form-group">
+            <label for="heart-rate">Current Heart Rate (bpm):</label>
+            <input type="number" id="heart-rate" min="40" max="220" value="120">
+        </div>
+
+        <div class="form-group">
+            <label for="max-heart-rate">Max Heart Rate (bpm):</label>
+            <input type="number" id="max-heart-rate" min="40" max="220" value="180">
+        </div>
+
+        <div class="form-group">
+            <label>Heart Rate Zones (as % of Max HR):</label>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Zone 1: <input type="number" id="zone1-min" value="50" min="0" max="100">% - <input type="number" id="zone1-max" value="60" min="0" max="100">%</span>
+                <span>Zone 2: <input type="number" id="zone2-min" value="60" min="0" max="100">% - <input type="number" id="zone2-max" value="70" min="0" max="100">%</span>
+                <span>Zone 3: <input type="number" id="zone3-min" value="70" min="0" max="100">% - <input type="number" id="zone3-max" value="80" min="0" max="100">%</span>
+                <span>Zone 4: <input type="number" id="zone4-min" value="80" min="0" max="100">% - <input type="number" id="zone4-max" value="90" min="0" max="100">%</span>
+                <span>Zone 5: <input type="number" id="zone5-min" value="90" min="0" max="100">% - <input type="number" id="zone5-max" value="100" min="0" max="100">%</span>
+            </div>
+        </div>
+
+        <div class="fuel-options">
+            <h3>Select Fuel Type:</h3>
+            <div class="fuel-item">
+                <span>Brand Gels (e.g., GU, Maurten)</span>
+                <input type="checkbox" id="brand-gels" checked>
+            </div>
+            <div class="fuel-item">
+                <span>Brand Drinks (e.g., Gatorade, Tailwind)</span>
+                <input type="checkbox" id="brand-drinks" checked>
+            </div>
+            <div class="fuel-item">
+                <span>Custom Fuel (e.g., homemade drinks)</span>
+                <input type="checkbox" id="custom-fuel">
+            </div>
+        </div>
+
+        <div id="custom-fuel-section" class="custom-fuel" style="display: none;">
+            <h3>Custom Fuel Details:</h3>
+            <div class="form-group">
+                <label for="custom-name">Name:</label>
+                <input type="text" id="custom-name" placeholder="e.g., Homemade Energy Drink">
+            </div>
+            <div class="form-group">
+                <label for="custom-carbs">Carbs per Serving (g):</label>
+                <input type="number" id="custom-carbs" min="0" value="25">
+            </div>
+            <div class="form-group">
+                <label for="custom-serving-size">Serving Size (ml):</label>
+                <input type="number" id="custom-serving-size" min="0" value="250">
+            </div>
+        </div>
+
+        <button onclick="calculateFueling()">Calculate Fueling Needs</button>
+
+        <div id="results" class="results">
+            <h2>Your Fueling Plan</h2>
+            <p><strong>Training Type:</strong> <span id="result-training-type"></span></p>
+            <p><strong>Duration:</strong> <span id="result-duration"></span> hours</p>
+            <p><strong>Heart Rate Zone:</strong> <span id="result-hr-zone"></span></p>
+            <p><strong>Total Carbs Needed:</strong> <span id="result-total-carbs"></span> g</p>
+            <p><strong>Carbs per Hour:</strong> <span id="result-carbs-per-hour"></span> g</p>
+            <p><strong>Recommended Fuel:</strong> <span id="result-fuel"></span></p>
+            <p><strong>Fueling Schedule:</strong> <span id="result-schedule"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Toggle custom fuel section
+        document.getElementById('custom-fuel').addEventListener('change', function() {
+            const customFuelSection = document.getElementById('custom-fuel-section');
+            customFuelSection.style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Calculate fueling needs
+        function calculateFueling() {
+            // Get inputs
+            const trainingType = document.getElementById('training-type').value;
+            const duration = parseFloat(document.getElementById('duration').value);
+            const heartRate = parseInt(document.getElementById('heart-rate').value);
+            const maxHeartRate = parseInt(document.getElementById('max-heart-rate').value);
+
+            // Heart rate zones
+            const zone1Min = parseInt(document.getElementById('zone1-min').value);
+            const zone1Max = parseInt(document.getElementById('zone1-max').value);
+            const zone2Min = parseInt(document.getElementById('zone2-min').value);
+            const zone2Max = parseInt(document.getElementById('zone2-max').value);
+            const zone3Min = parseInt(document.getElementById('zone3-min').value);
+            const zone3Max = parseInt(document.getElementById('zone3-max').value);
+            const zone4Min = parseInt(document.getElementById('zone4-min').value);
+            const zone4Max = parseInt(document.getElementById('zone4-max').value);
+            const zone5Min = parseInt(document.getElementById('zone5-min').value);
+            const zone5Max = parseInt(document.getElementById('zone5-max').value);
+
+            // Determine heart rate zone
+            const hrPercentage = (heartRate / maxHeartRate) * 100;
+            let hrZone;
+            if (hrPercentage >= zone1Min && hrPercentage <= zone1Max) hrZone = "Zone 1 (Easy)";
+            else if (hrPercentage >= zone2Min && hrPercentage <= zone2Max) hrZone = "Zone 2 (Moderate)";
+            else if (hrPercentage >= zone3Min && hrPercentage <= zone3Max) hrZone = "Zone 3 (Hard)";
+            else if (hrPercentage >= zone4Min && hrPercentage <= zone4Max) hrZone = "Zone 4 (Very Hard)";
+            else if (hrPercentage >= zone5Min && hrPercentage <= zone5Max) hrZone = "Zone 5 (Max Effort)";
+            else hrZone = "Unknown Zone";
+
+            // Carb requirements based on training type and zone
+            let carbsPerHour;
+            switch (trainingType) {
+                case "easy":
+                    carbsPerHour = hrZone.includes("Zone 1") ? 30 : 40;
+                    break;
+                case "moderate":
+                    carbsPerHour = hrZone.includes("Zone 2") ? 40 : hrZone.includes("Zone 3") ? 50 : 60;
+                    break;
+                case "hard":
+                    carbsPerHour = hrZone.includes("Zone 3") ? 60 : hrZone.includes("Zone 4") ? 70 : 80;
+                    break;
+                case "race":
+                    carbsPerHour = hrZone.includes("Zone 4") ? 80 : hrZone.includes("Zone 5") ? 90 : 70;
+                    break;
+                default:
+                    carbsPerHour = 50;
+            }
+
+            const totalCarbs = Math.round(carbsPerHour * duration);
+
+            // Fuel selection
+            const brandGels = document.getElementById('brand-gels').checked;
+            const brandDrinks = document.getElementById('brand-drinks').checked;
+            const customFuel = document.getElementById('custom-fuel').checked;
+
+            let recommendedFuel = [];
+            if (brandGels) recommendedFuel.push("Brand Gels (e.g., GU, Maurten)");
+            if (brandDrinks) recommendedFuel.push("Brand Drinks (e.g., Gatorade, Tailwind)");
+            if (customFuel) {
+                const customName = document.getElementById('custom-name').value || "Custom Fuel";
+                const customCarbs = document.getElementById('custom-carbs').value;
+                recommendedFuel.push(`${customName} (${customCarbs}g carbs/serving)`);
+            }
+
+            // Fueling schedule
+            const schedule = [];
+            const interval = duration <= 1 ? 30 : 45; // minutes
+            const totalMinutes = duration * 60;
+            for (let i = interval; i <= totalMinutes; i += interval) {
+                schedule.push(`${Math.round(i)} minutes: ${Math.round(carbsPerHour * (i / 60))}g carbs`);
+            }
+
+            // Display results
+            document.getElementById('result-training-type').textContent = trainingType.charAt(0).toUpperCase() + trainingType.slice(1);
+            document.getElementById('result-duration').textContent = duration;
+            document.getElementById('result-hr-zone').textContent = hrZone;
+            document.getElementById('result-total-carbs').textContent = totalCarbs;
+            document.getElementById('result-carbs-per-hour').textContent = carbsPerHour;
+            document.getElementById('result-fuel').textContent = recommendedFuel.join(", ") || "None selected";
+            document.getElementById('result-schedule').textContent = schedule.join("; ") || "No schedule generated";
+
+            document.getElementById('results').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

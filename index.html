@@ -39,6 +39,16 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 16px;
+            box-sizing: border-box;
+        }
+        .inline-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .inline-group input {
+            width: auto;
+            flex: 1;
         }
         button {
             background-color: #3498db;
@@ -50,6 +60,11 @@
         }
         button:hover {
             background-color: #2980b9;
+        }
+        .warning {
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 5px;
         }
         .results {
             margin-top: 20px;
@@ -115,6 +130,8 @@
             display: flex;
             justify-content: space-between;
             margin: 20px 0;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .pre-post-box {
             padding: 10px;
@@ -141,6 +158,16 @@
         tr:nth-child(even) {
             background-color: #f2f2f2;
         }
+        tr.total-row {
+            background-color: #e8f4fc !important;
+            font-weight: bold;
+        }
+        .profile-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
         @media print {
             .no-print {
                 display: none;
@@ -154,6 +181,25 @@
 <body>
     <div class="container">
         <h1>Fueling Needs Calculator for Running</h1>
+
+        <div class="profile-section">
+            <h3>User Profile</h3>
+            <div class="form-group">
+                <label for="body-weight">Body Weight (kg):</label>
+                <input type="number" id="body-weight" min="40" max="150" value="70">
+            </div>
+            <div class="form-group">
+                <label for="max-heart-rate">Max Heart Rate (bpm):</label>
+                <input type="number" id="max-heart-rate" min="40" max="220" value="180" onchange="updateHeartRateZone()">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="heavy-sweater"> I am a heavy sweater (adds +200mg sodium/hour)
+                </label>
+            </div>
+            <button onclick="saveProfile()">Save Profile</button>
+            <button onclick="loadProfile()">Load Profile</button>
+        </div>
 
         <div class="form-group">
             <label for="training-type">Training Type:</label>
@@ -171,43 +217,47 @@
         </div>
 
         <div class="form-group">
-            <label for="body-weight">Body Weight (kg):</label>
-            <input type="number" id="body-weight" min="40" max="150" value="70">
-        </div>
-
-        <div class="form-group">
             <label for="temperature">Temperature (°C):</label>
             <input type="number" id="temperature" min="-10" max="50" value="20">
         </div>
 
         <div class="form-group">
-            <label for="max-heart-rate">Max Heart Rate (bpm):</label>
-            <input type="number" id="max-heart-rate" min="40" max="220" value="180" onchange="updateHeartRateZone()">
+            <label for="pace-zone">Pace Zone (optional, e.g., 5:30-6:00/km):</label>
+            <input type="text" id="pace-zone" placeholder="e.g., 5:30-6:00/km">
         </div>
 
         <div class="form-group">
-            <label for="heart-rate">Current Heart Rate (bpm):</label>
-            <input type="number" id="heart-rate" min="40" max="220" value="120">
+            <label for="intended-heart-rate">Intended Training/Race Heart Rate (bpm):</label>
+            <input type="number" id="intended-heart-rate" min="40" max="220" value="120">
         </div>
 
         <div class="form-group">
-            <label>Heart Rate Zones (as % of Max HR):</label>
+            <label>
+                <input type="checkbox" id="use-bpm" onchange="toggleHeartRateMode()"> Use BPM instead of % for zones
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label>Heart Rate Zones:</label>
             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                 <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 1: <input type="number" id="zone1-min" value="0" min="0" max="100" disabled>% - <input type="number" id="zone1-max" value="65" min="0" max="100" disabled>%</label>
+                    <label>Zone 1: <input type="number" id="zone1-min" value="0" min="0" max="100" class="zone-input"> - <input type="number" id="zone1-max" value="65" min="0" max="100" class="zone-input"></label>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 2: <input type="number" id="zone2-min" value="66" min="0" max="100" disabled>% - <input type="number" id="zone2-max" value="75" min="0" max="100" disabled>%</label>
+                    <label>Zone 2: <input type="number" id="zone2-min" value="66" min="0" max="100" class="zone-input"> - <input type="number" id="zone2-max" value="75" min="0" max="100" class="zone-input"></label>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 3: <input type="number" id="zone3-min" value="76" min="0" max="100" disabled>% - <input type="number" id="zone3-max" value="84" min="0" max="100" disabled>%</label>
+                    <label>Zone 3: <input type="number" id="zone3-min" value="76" min="0" max="100" class="zone-input"> - <input type="number" id="zone3-max" value="84" min="0" max="100" class="zone-input"></label>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 4: <input type="number" id="zone4-min" value="85" min="0" max="100" disabled>% - <input type="number" id="zone4-max" value="98" min="0" max="100" disabled>%</label>
+                    <label>Zone 4: <input type="number" id="zone4-min" value="85" min="0" max="100" class="zone-input"> - <input type="number" id="zone4-max" value="98" min="0" max="100" class="zone-input"></label>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 5: <input type="number" id="zone5-min" value="99" min="0" max="100" disabled>% - <input type="number" id="zone5-max" value="100" min="0" max="100" disabled>%</label>
+                    <label>Zone 5: <input type="number" id="zone5-min" value="99" min="0" max="100" class="zone-input"> - <input type="number" id="zone5-max" value="100" min="0" max="100" class="zone-input"></label>
                 </div>
+            </div>
+            <div id="bpm-labels" style="display: none; margin-top: 10px; font-size: 12px; color: #666;">
+                Note: Values are in BPM. Update max HR to recalculate.
             </div>
         </div>
 
@@ -227,13 +277,24 @@
         <div id="custom-fuel-section" class="form-group" style="display: none;">
             <label for="custom-name">Custom Fuel Name:</label>
             <input type="text" id="custom-name" placeholder="e.g., Homemade Energy Drink">
-            <label for="custom-carbs">Carbs per Serving (g):</label>
-            <input type="number" id="custom-carbs" min="0" value="25">
-            <label for="custom-serving-size">Serving Size (ml):</label>
-            <input type="number" id="custom-serving-size" min="0" value="250">
+            <div class="inline-group">
+                <div>
+                    <label for="custom-carbs">Carbs per Serving (g):</label>
+                    <input type="number" id="custom-carbs" min="0" value="25">
+                </div>
+                <div>
+                    <label for="custom-fluids">Fluids per Serving (ml):</label>
+                    <input type="number" id="custom-fluids" min="0" value="250">
+                </div>
+                <div>
+                    <label for="custom-sodium">Sodium per Serving (mg):</label>
+                    <input type="number" id="custom-sodium" min="0" value="100">
+                </div>
+            </div>
         </div>
 
         <button onclick="calculateFueling()">Calculate Fueling Needs</button>
+        <div id="carb-warning" class="warning" style="display: none;"></div>
 
         <div id="results" class="results">
             <h2>Your Fueling Plan</h2>
@@ -280,45 +341,6 @@
             document.getElementById('custom-fuel-section').style.display = this.checked ? 'block' : 'none';
         });
 
-        // Update heart rate and zone based on training type
-        function updateHeartRateZone() {
-            const trainingType = document.getElementById('training-type').value;
-            const maxHeartRate = parseInt(document.getElementById('max-heart-rate').value) || 180;
-
-            let zoneMin, zoneMax, zoneName;
-            switch (trainingType) {
-                case "easy":
-                    zoneMin = 66;
-                    zoneMax = 75;
-                    zoneName = "Zone 2 (Moderate)";
-                    break;
-                case "moderate":
-                    zoneMin = 76;
-                    zoneMax = 84;
-                    zoneName = "Zone 3 (Hard)";
-                    break;
-                case "hard":
-                    zoneMin = 85;
-                    zoneMax = 98;
-                    zoneName = "Zone 4 (Very Hard)";
-                    break;
-                case "race":
-                    zoneMin = 76;
-                    zoneMax = 98;
-                    zoneName = "Zone 3/4 (Hard/Very Hard)";
-                    break;
-                default:
-                    zoneMin = 66;
-                    zoneMax = 75;
-                    zoneName = "Zone 2 (Moderate)";
-            }
-
-            // Set current heart rate to midpoint of the zone
-            const midpointPercentage = (zoneMin + zoneMax) / 2;
-            const currentHeartRate = Math.round((midpointPercentage / 100) * maxHeartRate);
-            document.getElementById('heart-rate').value = currentHeartRate;
-        }
-
         // Product database
         const productDatabase = [
             { name: "GU Energy Gel", carbs: 25, fluids: 0, sodium: 100, servingSize: "32g", type: "gel" },
@@ -328,6 +350,114 @@
             { name: "Water", carbs: 0, fluids: 250, sodium: 0, servingSize: "250ml", type: "drink" }
         ];
 
+        // Toggle between % and BPM for heart rate zones
+        function toggleHeartRateMode() {
+            const useBpm = document.getElementById('use-bpm').checked;
+            const maxHeartRate = parseInt(document.getElementById('max-heart-rate').value) || 180;
+            const zoneInputs = document.querySelectorAll('.zone-input');
+
+            if (useBpm) {
+                // Convert % to BPM
+                document.getElementById('zone1-min').value = Math.round(0 / 100 * maxHeartRate);
+                document.getElementById('zone1-max').value = Math.round(65 / 100 * maxHeartRate);
+                document.getElementById('zone2-min').value = Math.round(66 / 100 * maxHeartRate);
+                document.getElementById('zone2-max').value = Math.round(75 / 100 * maxHeartRate);
+                document.getElementById('zone3-min').value = Math.round(76 / 100 * maxHeartRate);
+                document.getElementById('zone3-max').value = Math.round(84 / 100 * maxHeartRate);
+                document.getElementById('zone4-min').value = Math.round(85 / 100 * maxHeartRate);
+                document.getElementById('zone4-max').value = Math.round(98 / 100 * maxHeartRate);
+                document.getElementById('zone5-min').value = Math.round(99 / 100 * maxHeartRate);
+                document.getElementById('zone5-max').value = Math.round(100 / 100 * maxHeartRate);
+
+                // Update labels to show BPM
+                zoneInputs.forEach(input => {
+                    input.setAttribute('min', '40');
+                    input.setAttribute('max', '220');
+                });
+                document.getElementById('bpm-labels').style.display = 'block';
+            } else {
+                // Convert BPM back to %
+                document.getElementById('zone1-min').value = 0;
+                document.getElementById('zone1-max').value = 65;
+                document.getElementById('zone2-min').value = 66;
+                document.getElementById('zone2-max').value = 75;
+                document.getElementById('zone3-min').value = 76;
+                document.getElementById('zone3-max').value = 84;
+                document.getElementById('zone4-min').value = 85;
+                document.getElementById('zone4-max').value = 98;
+                document.getElementById('zone5-min').value = 99;
+                document.getElementById('zone5-max').value = 100;
+
+                // Update labels to show %
+                zoneInputs.forEach(input => {
+                    input.setAttribute('min', '0');
+                    input.setAttribute('max', '100');
+                });
+                document.getElementById('bpm-labels').style.display = 'none';
+            }
+            updateHeartRateZone();
+        }
+
+        // Update heart rate and zone based on training type
+        function updateHeartRateZone() {
+            const trainingType = document.getElementById('training-type').value;
+            const maxHeartRate = parseInt(document.getElementById('max-heart-rate').value) || 180;
+            const useBpm = document.getElementById('use-bpm').checked;
+
+            let zoneMin, zoneMax;
+            switch (trainingType) {
+                case "easy":
+                    zoneMin = useBpm ? Math.round(66 / 100 * maxHeartRate) : 66;
+                    zoneMax = useBpm ? Math.round(75 / 100 * maxHeartRate) : 75;
+                    break;
+                case "moderate":
+                    zoneMin = useBpm ? Math.round(76 / 100 * maxHeartRate) : 76;
+                    zoneMax = useBpm ? Math.round(84 / 100 * maxHeartRate) : 84;
+                    break;
+                case "hard":
+                    zoneMin = useBpm ? Math.round(85 / 100 * maxHeartRate) : 85;
+                    zoneMax = useBpm ? Math.round(98 / 100 * maxHeartRate) : 98;
+                    break;
+                case "race":
+                    zoneMin = useBpm ? Math.round(76 / 100 * maxHeartRate) : 76;
+                    zoneMax = useBpm ? Math.round(98 / 100 * maxHeartRate) : 98;
+                    break;
+                default:
+                    zoneMin = useBpm ? Math.round(66 / 100 * maxHeartRate) : 66;
+                    zoneMax = useBpm ? Math.round(75 / 100 * maxHeartRate) : 75;
+            }
+
+            // Set current heart rate to midpoint of the zone
+            const midpoint = useBpm ? Math.round((zoneMin + zoneMax) / 2) : Math.round((zoneMin + zoneMax) / 2 / 100 * maxHeartRate);
+            document.getElementById('intended-heart-rate').value = midpoint;
+        }
+
+        // Save user profile to localStorage
+        function saveProfile() {
+            const profile = {
+                bodyWeight: document.getElementById('body-weight').value,
+                maxHeartRate: document.getElementById('max-heart-rate').value,
+                heavySweater: document.getElementById('heavy-sweater').checked
+            };
+            localStorage.setItem('fuelingProfile', JSON.stringify(profile));
+            alert('Profile saved!');
+        }
+
+        // Load user profile from localStorage
+        function loadProfile() {
+            const savedProfile = localStorage.getItem('fuelingProfile');
+            if (savedProfile) {
+                const profile = JSON.parse(savedProfile);
+                document.getElementById('body-weight').value = profile.bodyWeight;
+                document.getElementById('max-heart-rate').value = profile.maxHeartRate;
+                document.getElementById('heavy-sweater').checked = profile.heavySweater;
+                updateHeartRateZone();
+                alert('Profile loaded!');
+            } else {
+                alert('No saved profile found.');
+            }
+        }
+
         // Calculate fueling needs
         function calculateFueling() {
             // Get inputs
@@ -335,29 +465,53 @@
             const duration = parseFloat(document.getElementById('duration').value);
             const bodyWeight = parseFloat(document.getElementById('body-weight').value);
             const temperature = parseFloat(document.getElementById('temperature').value);
-            const heartRate = parseInt(document.getElementById('heart-rate').value);
+            const intendedHeartRate = parseInt(document.getElementById('intended-heart-rate').value);
             const maxHeartRate = parseInt(document.getElementById('max-heart-rate').value);
+            const useBpm = document.getElementById('use-bpm').checked;
+            const heavySweater = document.getElementById('heavy-sweater').checked;
 
-            // Heart rate zones (default values)
-            const zone1Min = 0;
-            const zone1Max = 65;
-            const zone2Min = 66;
-            const zone2Max = 75;
-            const zone3Min = 76;
-            const zone3Max = 84;
-            const zone4Min = 85;
-            const zone4Max = 98;
-            const zone5Min = 99;
-            const zone5Max = 100;
+            // Heart rate zones
+            let zone1Min, zone1Max, zone2Min, zone2Max, zone3Min, zone3Max, zone4Min, zone4Max, zone5Min, zone5Max;
+            if (useBpm) {
+                zone1Min = parseInt(document.getElementById('zone1-min').value) || 0;
+                zone1Max = parseInt(document.getElementById('zone1-max').value) || 65;
+                zone2Min = parseInt(document.getElementById('zone2-min').value) || 66;
+                zone2Max = parseInt(document.getElementById('zone2-max').value) || 75;
+                zone3Min = parseInt(document.getElementById('zone3-min').value) || 76;
+                zone3Max = parseInt(document.getElementById('zone3-max').value) || 84;
+                zone4Min = parseInt(document.getElementById('zone4-min').value) || 85;
+                zone4Max = parseInt(document.getElementById('zone4-max').value) || 98;
+                zone5Min = parseInt(document.getElementById('zone5-min').value) || 99;
+                zone5Max = parseInt(document.getElementById('zone5-max').value) || 100;
+            } else {
+                zone1Min = 0;
+                zone1Max = 65;
+                zone2Min = 66;
+                zone2Max = 75;
+                zone3Min = 76;
+                zone3Max = 84;
+                zone4Min = 85;
+                zone4Max = 98;
+                zone5Min = 99;
+                zone5Max = 100;
+            }
 
             // Determine heart rate zone
-            const hrPercentage = (heartRate / maxHeartRate) * 100;
             let hrZone;
-            if (hrPercentage <= zone1Max) hrZone = "Zone 1 (Easy)";
-            else if (hrPercentage <= zone2Max) hrZone = "Zone 2 (Moderate)";
-            else if (hrPercentage <= zone3Max) hrZone = "Zone 3 (Hard)";
-            else if (hrPercentage <= zone4Max) hrZone = "Zone 4 (Very Hard)";
-            else hrZone = "Zone 5 (Max Effort)";
+            if (useBpm) {
+                if (intendedHeartRate <= zone1Max) hrZone = "Zone 1 (Easy)";
+                else if (intendedHeartRate <= zone2Max) hrZone = "Zone 2 (Moderate)";
+                else if (intendedHeartRate <= zone3Max) hrZone = "Zone 3 (Hard)";
+                else if (intendedHeartRate <= zone4Max) hrZone = "Zone 4 (Very Hard)";
+                else hrZone = "Zone 5 (Max Effort)";
+            } else {
+                const hrPercentage = (intendedHeartRate / maxHeartRate) * 100;
+                if (hrPercentage <= zone1Max) hrZone = "Zone 1 (Easy)";
+                else if (hrPercentage <= zone2Max) hrZone = "Zone 2 (Moderate)";
+                else if (hrPercentage <= zone3Max) hrZone = "Zone 3 (Hard)";
+                else if (hrPercentage <= zone4Max) hrZone = "Zone 4 (Very Hard)";
+                else hrZone = "Zone 5 (Max Effort)";
+            }
 
             // Carb requirements based on training type and zone
             let carbsPerHour;
@@ -378,18 +532,33 @@
                     carbsPerHour = 50;
             }
 
-            // Fluid and sodium adjustments based on temperature and body weight
+            // Cap carb intake at 90g/hour
+            if (carbsPerHour > 90) {
+                document.getElementById('carb-warning').textContent = "Warning: Carb intake capped at 90g/hour (maximum absorbable).";
+                document.getElementById('carb-warning').style.display = 'block';
+                carbsPerHour = 90;
+            } else {
+                document.getElementById('carb-warning').style.display = 'none';
+            }
+
+            // Fluid and sodium adjustments
             const baseFluidPerHour = 500;
             const baseSodiumPerHour = 500;
             const tempFluidAdjustment = temperature > 25 ? 100 : 0;
             const tempSodiumAdjustment = temperature > 30 ? 200 : 0;
             const weightFluidAdjustment = bodyWeight * 5; // 5ml/kg/hour
+            const heavySweaterAdjustment = heavySweater ? 200 : 0;
 
-            const fluidPerHour = baseFluidPerHour + tempFluidAdjustment + weightFluidAdjustment;
-            const sodiumPerHour = baseSodiumPerHour + tempSodiumAdjustment;
+            let fluidPerHour = baseFluidPerHour + tempFluidAdjustment + weightFluidAdjustment;
+            // Cap fluid at 1200ml/hour
+            if (fluidPerHour > 1200) {
+                fluidPerHour = 1200;
+            }
+
+            const sodiumPerHour = baseSodiumPerHour + tempSodiumAdjustment + heavySweaterAdjustment;
 
             // Pre-start recommendations
-            const preStartCarbs = Math.round(bodyWeight * 1.5); // 1-2g/kg, using 1.5g/kg as middle
+            const preStartCarbs = Math.round(bodyWeight * 1.5); // 1-2g/kg
             const preStartFluids = 500;
             const preStartSodium = 300;
             const preStartSuggestion = "Oatmeal + Banana";
@@ -411,8 +580,9 @@
             if (customFuel) {
                 const customName = document.getElementById('custom-name').value || "Custom Fuel";
                 const customCarbs = parseInt(document.getElementById('custom-carbs').value) || 25;
-                const customFluids = parseInt(document.getElementById('custom-serving-size').value) || 0;
-                recommendedProducts.push({ name: customName, carbs: customCarbs, fluids: customFluids, sodium: 0, servingSize: `${customFluids}ml`, type: "custom" });
+                const customFluids = parseInt(document.getElementById('custom-fluids').value) || 0;
+                const customSodium = parseInt(document.getElementById('custom-sodium').value) || 0;
+                recommendedProducts.push({ name: customName, carbs: customCarbs, fluids: customFluids, sodium: customSodium, servingSize: `${customFluids}ml`, type: "custom" });
             }
 
             // Fueling schedule during activity
@@ -433,13 +603,20 @@
             // Add during activity intakes
             for (let i = interval; i <= totalMinutes; i += interval) {
                 const timeInHours = i / 60;
-                const carbs = Math.round(carbsPerHour * timeInHours);
-                const fluids = Math.round(fluidPerHour * timeInHours);
-                const sodium = Math.round(sodiumPerHour * timeInHours);
+                const carbs = Math.round(carbsPerHour * (i / 60));
+                const fluids = Math.round(fluidPerHour * (i / 60));
+                const sodium = Math.round(sodiumPerHour * (i / 60));
 
-                // Select a random product for variety
-                const productIndex = Math.floor(Math.random() * recommendedProducts.length);
-                const product = recommendedProducts[productIndex];
+                // Select a product based on type preference
+                let product;
+                if (recommendedProducts.length > 0) {
+                    // Alternate between gels and drinks if both are selected
+                    const lastProductType = schedule.length > 0 ? schedule[schedule.length - 1].suggestion.type : null;
+                    const availableProducts = recommendedProducts.filter(p => !lastProductType || p.type !== lastProductType);
+                    product = availableProducts.length > 0 ? availableProducts[0] : recommendedProducts[0];
+                } else {
+                    product = { name: "Water", carbs: 0, fluids: 250, sodium: 0, type: "drink" };
+                }
 
                 schedule.push({
                     time: formatTime(i),
@@ -447,7 +624,8 @@
                     carbs: product.carbs,
                     fluids: product.fluids,
                     sodium: product.sodium,
-                    isPrePost: false
+                    isPrePost: false,
+                    type: product.type
                 });
             }
 
@@ -461,6 +639,11 @@
                 isPrePost: true
             });
 
+            // Calculate totals
+            const totalCarbs = schedule.reduce((sum, item) => sum + item.carbs, 0);
+            const totalFluids = schedule.reduce((sum, item) => sum + item.fluids, 0);
+            const totalSodium = schedule.reduce((sum, item) => sum + item.sodium, 0);
+
             // Display pre-start and post-finish
             document.getElementById('pre-start-details').innerHTML =
                 `${preStartSuggestion}<br>Carbs: ${preStartCarbs}g, Fluids: ${preStartFluids}ml, Sodium: ${preStartSodium}mg`;
@@ -471,7 +654,7 @@
             createTimeline(schedule.filter(item => !item.isPrePost), duration);
 
             // Create table
-            createTable(schedule);
+            createTable(schedule, totalCarbs, totalFluids, totalSodium);
 
             // Show results
             document.getElementById('results').style.display = 'block';
@@ -518,17 +701,16 @@
                 icon.style.left = `${positionPercentage}%`;
 
                 // Choose icon based on suggestion
-                let iconHtml, tooltip;
-                const product = productDatabase.find(p => p.name === item.suggestion) || { type: "custom" };
-                if (product.type === "gel" || item.suggestion.includes("Gel")) {
+                let iconHtml;
+                if (item.type === "gel" || item.suggestion.includes("Gel")) {
                     iconHtml = '<i class="fas fa-capsules"></i>';
-                } else if (product.type === "drink" || item.suggestion.includes("Drink") || item.suggestion.includes("Water")) {
+                } else if (item.type === "drink" || item.suggestion.includes("Drink") || item.suggestion.includes("Water")) {
                     iconHtml = '<i class="fas fa-tint"></i>';
                 } else {
                     iconHtml = '<i class="fas fa-utensils"></i>';
                 }
 
-                tooltip = `${item.time}: ${item.suggestion}\nCarbs: ${item.carbs}g, Fluids: ${item.fluids}ml, Sodium: ${item.sodium}mg`;
+                const tooltip = `${item.time}: ${item.suggestion}\nCarbs: ${item.carbs}g, Fluids: ${item.fluids}ml, Sodium: ${item.sodium}mg`;
                 icon.innerHTML = iconHtml;
                 icon.setAttribute('data-tooltip', tooltip);
 
@@ -537,7 +719,7 @@
         }
 
         // Create detailed table
-        function createTable(schedule) {
+        function createTable(schedule, totalCarbs, totalFluids, totalSodium) {
             const tableBody = document.getElementById('fueling-table-body');
             tableBody.innerHTML = '';
 
@@ -552,10 +734,32 @@
                 `;
                 tableBody.appendChild(row);
             });
+
+            // Add total row
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td><strong>Total</strong></td>
+                <td></td>
+                <td><strong>${totalCarbs}</strong></td>
+                <td><strong>${totalFluids}</strong></td>
+                <td><strong>${totalSodium}</strong></td>
+            `;
+            tableBody.appendChild(totalRow);
         }
 
         // Initialize heart rate zone on page load
-        window.onload = updateHeartRateZone;
+        window.onload = function() {
+            updateHeartRateZone();
+            // Load profile if exists
+            const savedProfile = localStorage.getItem('fuelingProfile');
+            if (savedProfile) {
+                const profile = JSON.parse(savedProfile);
+                document.getElementById('body-weight').value = profile.bodyWeight;
+                document.getElementById('max-heart-rate').value = profile.maxHeartRate;
+                document.getElementById('heavy-sweater').checked = profile.heavySweater;
+            }
+        };
     </script>
 </body>
 </html>

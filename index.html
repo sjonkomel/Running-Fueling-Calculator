@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fueling Needs Calculator for Running</title>
+    <title>Fueling & Hydration Calculator for Running</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
@@ -25,6 +25,12 @@
         h1, h2, h3 {
             color: #2c3e50;
         }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
         .form-group {
             margin-bottom: 15px;
         }
@@ -41,14 +47,27 @@
             font-size: 16px;
             box-sizing: border-box;
         }
+        .checkbox-group, .radio-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .checkbox-group input[type="checkbox"],
+        .radio-group input[type="radio"] {
+            width: auto;
+            margin-right: 8px;
+        }
         .inline-group {
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .inline-group input {
             width: auto;
             flex: 1;
+            min-width: 80px;
         }
         button {
             background-color: #3498db;
@@ -61,8 +80,19 @@
         button:hover {
             background-color: #2980b9;
         }
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
         .warning {
             color: #e74c3c;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .success {
+            color: #27ae60;
             font-weight: bold;
             margin-top: 5px;
         }
@@ -162,11 +192,29 @@
             background-color: #e8f4fc !important;
             font-weight: bold;
         }
-        .profile-section {
-            margin-bottom: 20px;
+        .references-section {
+            margin-top: 30px;
             padding: 15px;
             background-color: #f9f9f9;
             border-radius: 4px;
+            font-size: 14px;
+        }
+        .references-section a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .references-section a:hover {
+            text-decoration: underline;
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        .slider-container input[type="range"] {
+            width: 100%;
+        }
+        .slider-value {
+            text-align: center;
+            font-weight: bold;
         }
         @media print {
             .no-print {
@@ -180,9 +228,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Fueling Needs Calculator for Running</h1>
+        <h1>Fueling & Hydration Calculator for Running</h1>
 
-        <div class="profile-section">
+        <!-- User Profile Section -->
+        <div class="section">
             <h3>User Profile</h3>
             <div class="form-group">
                 <label for="body-weight">Body Weight (kg):</label>
@@ -193,111 +242,225 @@
                 <input type="number" id="max-heart-rate" min="40" max="220" value="180" onchange="updateHeartRateZone()">
             </div>
             <div class="form-group">
-                <label>
-                    <input type="checkbox" id="heavy-sweater"> I am a heavy sweater (adds +200mg sodium/hour)
-                </label>
+                <label for="training-level">Training Level:</label>
+                <select id="training-level">
+                    <option value="beginner">Beginner (Max ~40g carbs/hour)</option>
+                    <option value="intermediate" selected>Intermediate (Max ~60g carbs/hour)</option>
+                    <option value="advanced">Advanced (Max ~90g carbs/hour)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sweat Rate:</label>
+                <div class="radio-group">
+                    <input type="radio" id="sweat-rate-default" name="sweat-rate" value="default" checked onchange="toggleSweatRate()">
+                    <label for="sweat-rate-default">Default (700mg sodium/L)</label>
+                </div>
+                <div class="radio-group">
+                    <input type="radio" id="sweat-rate-heavy" name="sweat-rate" value="heavy" onchange="toggleSweatRate()">
+                    <label for="sweat-rate-heavy">Heavy Sweater (900-1200mg sodium/L)</label>
+                </div>
+                <div id="sweat-rate-custom-section" style="display: none; margin-top: 10px;">
+                    <label for="sodium-per-liter">Custom Sodium per Liter (mg):</label>
+                    <input type="number" id="sodium-per-liter" min="500" max="1500" value="700">
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="heavy-sweater">
+                <label for="heavy-sweater">I lose a lot of salt (adds +200mg sodium/hour)</label>
             </div>
             <button onclick="saveProfile()">Save Profile</button>
-            <button onclick="loadProfile()">Load Profile</button>
+            <button onclick="loadProfile()" class="secondary">Load Profile</button>
         </div>
 
-        <div class="form-group">
-            <label for="training-type">Training Type:</label>
-            <select id="training-type" onchange="updateHeartRateZone()">
-                <option value="easy">Easy Run</option>
-                <option value="moderate">Moderate Run</option>
-                <option value="hard">Hard Workout</option>
-                <option value="race">Race</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="duration">Duration (hours):</label>
-            <input type="number" id="duration" min="0.5" max="6" step="0.1" value="1">
-        </div>
-
-        <div class="form-group">
-            <label for="temperature">Temperature (°C):</label>
-            <input type="number" id="temperature" min="-10" max="50" value="20">
-        </div>
-
-        <div class="form-group">
-            <label for="pace-zone">Pace Zone (optional, e.g., 5:30-6:00/km):</label>
-            <input type="text" id="pace-zone" placeholder="e.g., 5:30-6:00/km">
-        </div>
-
-        <div class="form-group">
-            <label for="intended-heart-rate">Intended Training/Race Heart Rate (bpm):</label>
-            <input type="number" id="intended-heart-rate" min="40" max="220" value="120">
-        </div>
-
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="use-bpm" onchange="toggleHeartRateMode()"> Use BPM instead of % for zones
-            </label>
-        </div>
-
-        <div class="form-group">
-            <label>Heart Rate Zones:</label>
-            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 1: <input type="number" id="zone1-min" value="0" min="0" max="100" class="zone-input"> - <input type="number" id="zone1-max" value="65" min="0" max="100" class="zone-input"></label>
-                </div>
-                <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 2: <input type="number" id="zone2-min" value="66" min="0" max="100" class="zone-input"> - <input type="number" id="zone2-max" value="75" min="0" max="100" class="zone-input"></label>
-                </div>
-                <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 3: <input type="number" id="zone3-min" value="76" min="0" max="100" class="zone-input"> - <input type="number" id="zone3-max" value="84" min="0" max="100" class="zone-input"></label>
-                </div>
-                <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 4: <input type="number" id="zone4-min" value="85" min="0" max="100" class="zone-input"> - <input type="number" id="zone4-max" value="98" min="0" max="100" class="zone-input"></label>
-                </div>
-                <div style="flex: 1; min-width: 150px;">
-                    <label>Zone 5: <input type="number" id="zone5-min" value="99" min="0" max="100" class="zone-input"> - <input type="number" id="zone5-max" value="100" min="0" max="100" class="zone-input"></label>
-                </div>
-            </div>
-            <div id="bpm-labels" style="display: none; margin-top: 10px; font-size: 12px; color: #666;">
-                Note: Values are in BPM. Update max HR to recalculate.
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Select Fuel Type:</label>
-            <div>
-                <label><input type="checkbox" id="brand-gels" checked> Brand Gels (e.g., GU, Maurten)</label>
-            </div>
-            <div>
-                <label><input type="checkbox" id="brand-drinks" checked> Brand Drinks (e.g., Gatorade, Tailwind)</label>
-            </div>
-            <div>
-                <label><input type="checkbox" id="custom-fuel"> Custom Fuel</label>
-            </div>
-        </div>
-
-        <div id="custom-fuel-section" class="form-group" style="display: none;">
-            <label for="custom-name">Custom Fuel Name:</label>
-            <input type="text" id="custom-name" placeholder="e.g., Homemade Energy Drink">
+        <!-- Sweat Rate Calculator Section -->
+        <div class="section">
+            <h3>Estimate Your Sweat Rate (Optional)</h3>
+            <p>Enter your pre/post-run weight and fluid intake to calculate your sweat rate.</p>
             <div class="inline-group">
                 <div>
-                    <label for="custom-carbs">Carbs per Serving (g):</label>
-                    <input type="number" id="custom-carbs" min="0" value="25">
+                    <label for="pre-weight">Pre-Run Weight (kg):</label>
+                    <input type="number" id="pre-weight" min="40" max="150" placeholder="e.g., 70">
                 </div>
                 <div>
-                    <label for="custom-fluids">Fluids per Serving (ml):</label>
-                    <input type="number" id="custom-fluids" min="0" value="250">
+                    <label for="post-weight">Post-Run Weight (kg):</label>
+                    <input type="number" id="post-weight" min="40" max="150" placeholder="e.g., 69">
                 </div>
                 <div>
-                    <label for="custom-sodium">Sodium per Serving (mg):</label>
-                    <input type="number" id="custom-sodium" min="0" value="100">
+                    <label for="run-duration-sweat">Run Duration (hours):</label>
+                    <input type="number" id="run-duration-sweat" min="0.5" max="6" step="0.1" value="1">
+                </div>
+                <div>
+                    <label for="fluid-during-sweat">Fluid Intake During Run (ml):</label>
+                    <input type="number" id="fluid-during-sweat" min="0" max="5000" placeholder="e.g., 500">
+                </div>
+            </div>
+            <button onclick="calculateSweatRate()" class="secondary">Calculate Sweat Rate</button>
+            <div id="sweat-rate-result" style="margin-top: 10px; font-weight: bold;"></div>
+        </div>
+
+        <!-- Training Details Section -->
+        <div class="section">
+            <h3>Training Details</h3>
+            <div class="form-group">
+                <label for="training-type">Training Type:</label>
+                <select id="training-type" onchange="updateHeartRateZone()">
+                    <option value="easy">Easy Run</option>
+                    <option value="moderate">Moderate Run</option>
+                    <option value="hard">Hard Workout</option>
+                    <option value="race">Race</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="duration">Duration (hours):</label>
+                <input type="number" id="duration" min="0.5" max="6" step="0.1" value="1">
+            </div>
+
+            <div class="form-group">
+                <label for="temperature">Temperature (°C):</label>
+                <input type="number" id="temperature" min="-10" max="50" value="20">
+            </div>
+
+            <div class="form-group">
+                <label for="humidity">Humidity (%):</label>
+                <input type="number" id="humidity" min="0" max="100" value="50">
+            </div>
+
+            <div class="form-group">
+                <label for="pace-zone">Pace Zone (optional, e.g., 5:30-6:00/km):</label>
+                <input type="text" id="pace-zone" placeholder="e.g., 5:30-6:00/km">
+            </div>
+
+            <div class="form-group">
+                <label for="intended-heart-rate">Intended Training/Race Heart Rate (bpm):</label>
+                <input type="number" id="intended-heart-rate" min="40" max="220" value="120">
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="use-bpm" onchange="toggleHeartRateMode()">
+                <label for="use-bpm">Use BPM instead of % for zones</label>
+            </div>
+
+            <div class="form-group">
+                <label>Heart Rate Zones:</label>
+                <div class="inline-group">
+                    <div>
+                        <label>Zone 1: <input type="number" id="zone1-min" value="0" min="0" max="100" class="zone-input"> - <input type="number" id="zone1-max" value="65" min="0" max="100" class="zone-input"></label>
+                    </div>
+                    <div>
+                        <label>Zone 2: <input type="number" id="zone2-min" value="66" min="0" max="100" class="zone-input"> - <input type="number" id="zone2-max" value="75" min="0" max="100" class="zone-input"></label>
+                    </div>
+                    <div>
+                        <label>Zone 3: <input type="number" id="zone3-min" value="76" min="0" max="100" class="zone-input"> - <input type="number" id="zone3-max" value="84" min="0" max="100" class="zone-input"></label>
+                    </div>
+                    <div>
+                        <label>Zone 4: <input type="number" id="zone4-min" value="85" min="0" max="100" class="zone-input"> - <input type="number" id="zone4-max" value="98" min="0" max="100" class="zone-input"></label>
+                    </div>
+                    <div>
+                        <label>Zone 5: <input type="number" id="zone5-min" value="99" min="0" max="100" class="zone-input"> - <input type="number" id="zone5-max" value="100" min="0" max="100" class="zone-input"></label>
+                    </div>
+                </div>
+                <div id="bpm-labels" style="display: none; margin-top: 10px; font-size: 12px; color: #666;">
+                    Note: Values are in BPM. Update max HR to recalculate.
                 </div>
             </div>
         </div>
 
-        <button onclick="calculateFueling()">Calculate Fueling Needs</button>
+        <!-- Fueling Options Section -->
+        <div class="section">
+            <h3>Fueling Options</h3>
+            <div class="form-group">
+                <label>Select Fuel Type:</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="brand-gels" checked>
+                    <label for="brand-gels">Brand Gels (e.g., GU, Maurten, Upfront)</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="brand-drinks" checked>
+                    <label for="brand-drinks">Brand Drinks (e.g., Gatorade, Tailwind)</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="custom-fuel">
+                    <label for="custom-fuel">Custom Fuel</label>
+                </div>
+            </div>
+
+            <div id="custom-fuel-section" class="form-group" style="display: none;">
+                <label for="custom-name">Custom Fuel Name:</label>
+                <input type="text" id="custom-name" placeholder="e.g., Homemade Energy Drink">
+                <div class="inline-group">
+                    <div>
+                        <label for="custom-carbs">Carbs per Serving (g):</label>
+                        <input type="number" id="custom-carbs" min="0" value="25">
+                    </div>
+                    <div>
+                        <label for="custom-fluids">Fluids per Serving (ml):</label>
+                        <input type="number" id="custom-fluids" min="0" value="250">
+                    </div>
+                    <div>
+                        <label for="custom-sodium">Sodium per Serving (mg):</label>
+                        <input type="number" id="custom-sodium" min="0" value="100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Caffeine Section -->
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="include-caffeine" onchange="toggleCaffeineSection()">
+                    <label for="include-caffeine">Include Caffeine Strategy</label>
+                </div>
+                <div id="caffeine-section" style="display: none; margin-top: 10px;">
+                    <div class="form-group">
+                        <label for="caffeine-timing">Caffeine Timing:</label>
+                        <select id="caffeine-timing" onchange="updateCaffeineDoses()">
+                            <option value="none">None</option>
+                            <option value="pre-only">Pre-Start Only</option>
+                            <option value="pre-mid">Pre-Start + Mid-Run (1 dose)</option>
+                            <option value="pre-late">Pre-Start + Late Run (2 doses)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="caffeine-dose">Caffeine Dose per Serving (mg):</label>
+                        <input type="number" id="caffeine-dose" min="10" max="200" value="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Caffeine Products:</label>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="caffeine-gels" checked>
+                            <label for="caffeine-gels">Caffeinated Gels (e.g., GU Roctane, Upfront Cassis)</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="caffeine-drinks">
+                            <label for="caffeine-drinks">Caffeinated Drinks (e.g., Tailwind Caffeinated)</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="caffeine-custom">
+                            <label for="caffeine-custom">Custom Caffeine Source</label>
+                        </div>
+                        <div id="custom-caffeine-section" style="display: none; margin-top: 10px;">
+                            <div class="inline-group">
+                                <div>
+                                    <label for="custom-caffeine-name">Name:</label>
+                                    <input type="text" id="custom-caffeine-name" placeholder="e.g., Coffee">
+                                </div>
+                                <div>
+                                    <label for="custom-caffeine-amount">Caffeine per Serving (mg):</label>
+                                    <input type="number" id="custom-caffeine-amount" min="0" value="100">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="calculateFueling()">Calculate Fueling & Hydration Plan</button>
         <div id="carb-warning" class="warning" style="display: none;"></div>
+        <div id="caffeine-warning" class="warning" style="display: none;"></div>
 
         <div id="results" class="results">
-            <h2>Your Fueling Plan</h2>
+            <h2>Your Fueling & Hydration Plan</h2>
 
             <div class="pre-post-section">
                 <div class="pre-post-box">
@@ -327,11 +490,45 @@
                         <th>Carbs (g)</th>
                         <th>Fluids (ml)</th>
                         <th>Sodium (mg)</th>
+                        <th>Caffeine (mg)</th>
                     </tr>
                 </thead>
                 <tbody id="fueling-table-body">
                 </tbody>
             </table>
+
+            <div class="references-section">
+                <h3>Scientific References</h3>
+                <p>
+                    This calculator is based on the following well-established guidelines:
+                </p>
+                <ul>
+                    <li>
+                        <strong>ACSM (2007):</strong> Fluid replacement should aim to prevent excessive dehydration (>2% body weight loss). Fluid intake of 400-800 ml/hour is recommended.
+                        <a href="https://www.acsm.org/" target="_blank">ACSM Position Stand on Exercise and Fluid Replacement</a>
+                    </li>
+                    <li>
+                        <strong>IOC (2019):</strong> Individualized hydration plans should consider sweat rate, exercise duration, and environmental conditions.
+                        <a href="https://www.olympic.org/" target="_blank">IOC Consensus Statement on Sports Nutrition</a>
+                    </li>
+                    <li>
+                        <strong>Jeukendrup (2014):</strong> Carbohydrate intake of 30–60g/hour is recommended for endurance exercise, with up to 90g/hour for ultra-endurance events. Caffeine intake of 3-6 mg/kg can improve performance.
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3905295/" target="_blank">Jeukendrup et al. (2014) - Nutrition for Endurance Sports</a>
+                    </li>
+                    <li>
+                        <strong>Shaw et al. (2014):</strong> Sodium intake should match sweat sodium losses, typically 500–700 mg/hour. Heavy sweaters may need up to 1200 mg/hour.
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4042567/" target="_blank">Shaw et al. (2014) - Fluid and Sodium Balance in Endurance Athletes</a>
+                    </li>
+                    <li>
+                        <strong>Thomas et al. (2016):</strong> Fluid intake should be individualized based on sweat rate and environmental conditions. Sodium needs may increase in hot/humid conditions.
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4821276/" target="_blank">Thomas et al. (2016) - Position Statement on Hydration</a>
+                    </li>
+                    <li>
+                        <strong>Goldstein et al. (2010):</strong> Caffeine doses of 3-6 mg/kg can enhance endurance performance, with a maximum of 200-300 mg/hour to avoid side effects. Pre-exercise dosing (30-60 mins before) is most effective.
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/20479222/" target="_blank">Goldstein et al. (2010) - Caffeine and Exercise Performance</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -341,13 +538,54 @@
             document.getElementById('custom-fuel-section').style.display = this.checked ? 'block' : 'none';
         });
 
-        // Product database
+        // Toggle caffeine section
+        function toggleCaffeineSection() {
+            const includeCaffeine = document.getElementById('include-caffeine').checked;
+            document.getElementById('caffeine-section').style.display = includeCaffeine ? 'block' : 'none';
+            if (includeCaffeine) {
+                updateCaffeineDoses();
+            }
+        }
+
+        // Toggle custom caffeine section
+        document.getElementById('caffeine-custom').addEventListener('change', function() {
+            document.getElementById('custom-caffeine-section').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Update caffeine doses based on timing selection
+        function updateCaffeineDoses() {
+            // This function can be expanded if needed for dynamic UI updates
+        }
+
+        // Toggle sweat rate custom section
+        function toggleSweatRate() {
+            const sweatRateOption = document.querySelector('input[name="sweat-rate"]:checked').value;
+            document.getElementById('sweat-rate-custom-section').style.display =
+                sweatRateOption === 'custom' ? 'block' : 'none';
+        }
+
+        // Product database with caffeine and Upfront gels
         const productDatabase = [
-            { name: "GU Energy Gel", carbs: 25, fluids: 0, sodium: 100, servingSize: "32g", type: "gel" },
-            { name: "Maurten Gel 100", carbs: 25, fluids: 0, sodium: 50, servingSize: "40g", type: "gel" },
-            { name: "Tailwind Nutrition Drink", carbs: 25, fluids: 250, sodium: 200, servingSize: "250ml", type: "drink" },
-            { name: "Gatorade Endurance", carbs: 36, fluids: 500, sodium: 300, servingSize: "500ml", type: "drink" },
-            { name: "Water", carbs: 0, fluids: 250, sodium: 0, servingSize: "250ml", type: "drink" }
+            { name: "GU Energy Gel", carbs: 25, fluids: 0, sodium: 100, caffeine: 0, potassium: 0, magnesium: 0, servingSize: "32g", type: "gel" },
+            { name: "GU Roctane Gel", carbs: 25, fluids: 0, sodium: 125, caffeine: 35, potassium: 0, magnesium: 0, servingSize: "32g", type: "gel" },
+            { name: "Maurten Gel 100", carbs: 25, fluids: 0, sodium: 50, caffeine: 0, potassium: 0, magnesium: 0, servingSize: "40g", type: "gel" },
+            { name: "Maurten Gel 100 Caffeine", carbs: 25, fluids: 0, sodium: 50, caffeine: 100, potassium: 0, magnesium: 0, servingSize: "40g", type: "gel" },
+            { name: "Upfront Gel (Standard)", carbs: 30, fluids: 0, sodium: 0, caffeine: 0, potassium: 0, magnesium: 0, servingSize: "50g", type: "gel" },
+            { name: "Upfront Gel (Cassis)", carbs: 30, fluids: 0, sodium: 300, caffeine: 75, potassium: 0, magnesium: 0, servingSize: "50g", type: "gel" },
+            { name: "Tailwind Nutrition Drink", carbs: 25, fluids: 250, sodium: 200, caffeine: 0, potassium: 150, magnesium: 10, servingSize: "250ml", type: "drink" },
+            { name: "Tailwind Caffeinated Drink", carbs: 25, fluids: 250, sodium: 200, caffeine: 50, potassium: 150, magnesium: 10, servingSize: "250ml", type: "drink" },
+            { name: "Gatorade Endurance", carbs: 36, fluids: 500, sodium: 300, caffeine: 0, potassium: 140, magnesium: 20, servingSize: "500ml", type: "drink" },
+            { name: "Water", carbs: 0, fluids: 250, sodium: 0, caffeine: 0, potassium: 0, magnesium: 0, servingSize: "250ml", type: "drink" },
+            { name: "Banana", carbs: 27, fluids: 0, sodium: 0, caffeine: 0, potassium: 422, magnesium: 32, servingSize: "1 medium", type: "food" },
+            { name: "Coffee (240ml)", carbs: 2, fluids: 240, sodium: 5, caffeine: 95, potassium: 116, magnesium: 7, servingSize: "240ml", type: "drink" }
+        ];
+
+        // Caffeine products database with Upfront Cassis
+        const caffeineProducts = [
+            { name: "GU Roctane Gel", caffeine: 35, type: "gel" },
+            { name: "Maurten Gel 100 Caffeine", caffeine: 100, type: "gel" },
+            { name: "Upfront Gel (Cassis)", caffeine: 75, type: "gel" },
+            { name: "Tailwind Caffeinated Drink", caffeine: 50, type: "drink" }
         ];
 
         // Toggle between % and BPM for heart rate zones
@@ -432,12 +670,48 @@
             document.getElementById('intended-heart-rate').value = midpoint;
         }
 
+        // Calculate sweat rate
+        function calculateSweatRate() {
+            const preWeight = parseFloat(document.getElementById('pre-weight').value);
+            const postWeight = parseFloat(document.getElementById('post-weight').value);
+            const duration = parseFloat(document.getElementById('run-duration-sweat').value);
+            const fluidDuring = parseFloat(document.getElementById('fluid-during-sweat').value);
+
+            if (!preWeight || !postWeight || !duration) {
+                alert("Please fill in all fields to calculate sweat rate.");
+                return;
+            }
+
+            // Sweat rate = (pre-weight - post-weight) * 1000 + fluid intake during run
+            const weightLossKg = preWeight - postWeight;
+            const weightLossMl = weightLossKg * 1000; // 1kg = 1L
+            const sweatLossMl = weightLossMl + fluidDuring;
+            const sweatRateMlPerHour = Math.round(sweatLossMl / duration);
+
+            document.getElementById('sweat-rate-result').innerHTML =
+                `Your sweat rate: <strong>${sweatRateMlPerHour} ml/hour</strong>. ` +
+                `This means you should aim to replace <strong>${Math.round(sweatRateMlPerHour * 0.8)}-${Math.round(sweatRateMlPerHour * 1.2)} ml/hour</strong> during your run.`;
+
+            // Auto-set sodium per liter based on sweat rate
+            if (sweatRateMlPerHour > 1200) {
+                document.getElementById('sweat-rate-heavy').checked = true;
+                toggleSweatRate();
+                document.getElementById('sodium-per-liter').value = 1000;
+            }
+        }
+
         // Save user profile to localStorage
         function saveProfile() {
             const profile = {
                 bodyWeight: document.getElementById('body-weight').value,
                 maxHeartRate: document.getElementById('max-heart-rate').value,
-                heavySweater: document.getElementById('heavy-sweater').checked
+                trainingLevel: document.getElementById('training-level').value,
+                heavySweater: document.getElementById('heavy-sweater').checked,
+                sweatRateOption: document.querySelector('input[name="sweat-rate"]:checked').value,
+                sodiumPerLiter: document.getElementById('sodium-per-liter').value,
+                includeCaffeine: document.getElementById('include-caffeine').checked,
+                caffeineTiming: document.getElementById('caffeine-timing').value,
+                caffeineDose: document.getElementById('caffeine-dose').value
             };
             localStorage.setItem('fuelingProfile', JSON.stringify(profile));
             alert('Profile saved!');
@@ -450,12 +724,37 @@
                 const profile = JSON.parse(savedProfile);
                 document.getElementById('body-weight').value = profile.bodyWeight;
                 document.getElementById('max-heart-rate').value = profile.maxHeartRate;
+                document.getElementById('training-level').value = profile.trainingLevel;
                 document.getElementById('heavy-sweater').checked = profile.heavySweater;
+
+                // Set sweat rate option
+                if (profile.sweatRateOption) {
+                    document.getElementById(`sweat-rate-${profile.sweatRateOption}`).checked = true;
+                    toggleSweatRate();
+                    if (profile.sweatRateOption === 'custom') {
+                        document.getElementById('sodium-per-liter').value = profile.sodiumPerLiter;
+                    }
+                }
+
+                // Set caffeine options if saved
+                if (profile.includeCaffeine) {
+                    document.getElementById('include-caffeine').checked = true;
+                    toggleCaffeineSection();
+                    document.getElementById('caffeine-timing').value = profile.caffeineTiming;
+                    document.getElementById('caffeine-dose').value = profile.caffeineDose;
+                    updateCaffeineDoses();
+                }
+
                 updateHeartRateZone();
                 alert('Profile loaded!');
             } else {
                 alert('No saved profile found.');
             }
+        }
+
+        // Round fluid to nearest 250ml
+        function roundTo250(ml) {
+            return Math.round(ml / 250) * 250;
         }
 
         // Calculate fueling needs
@@ -465,24 +764,41 @@
             const duration = parseFloat(document.getElementById('duration').value);
             const bodyWeight = parseFloat(document.getElementById('body-weight').value);
             const temperature = parseFloat(document.getElementById('temperature').value);
+            const humidity = parseFloat(document.getElementById('humidity').value);
             const intendedHeartRate = parseInt(document.getElementById('intended-heart-rate').value);
             const maxHeartRate = parseInt(document.getElementById('max-heart-rate').value);
             const useBpm = document.getElementById('use-bpm').checked;
             const heavySweater = document.getElementById('heavy-sweater').checked;
+            const trainingLevel = document.getElementById('training-level').value;
+            const includeCaffeine = document.getElementById('include-caffeine').checked;
+            const caffeineTiming = document.getElementById('caffeine-timing').value;
+            const caffeineDose = parseInt(document.getElementById('caffeine-dose').value) || 50;
+            const caffeineGels = document.getElementById('caffeine-gels').checked;
+            const caffeineDrinks = document.getElementById('caffeine-drinks').checked;
+            const caffeineCustom = document.getElementById('caffeine-custom').checked;
+
+            // Sodium per liter setting
+            const sweatRateOption = document.querySelector('input[name="sweat-rate"]:checked').value;
+            let sodiumPerLiter = 700; // Default
+            if (sweatRateOption === 'heavy') {
+                sodiumPerLiter = 1000; // Heavy sweaters
+            } else if (sweatRateOption === 'custom') {
+                sodiumPerLiter = parseInt(document.getElementById('sodium-per-liter').value) || 700;
+            }
 
             // Heart rate zones
             let zone1Min, zone1Max, zone2Min, zone2Max, zone3Min, zone3Max, zone4Min, zone4Max, zone5Min, zone5Max;
             if (useBpm) {
                 zone1Min = parseInt(document.getElementById('zone1-min').value) || 0;
-                zone1Max = parseInt(document.getElementById('zone1-max').value) || 65;
-                zone2Min = parseInt(document.getElementById('zone2-min').value) || 66;
-                zone2Max = parseInt(document.getElementById('zone2-max').value) || 75;
-                zone3Min = parseInt(document.getElementById('zone3-min').value) || 76;
-                zone3Max = parseInt(document.getElementById('zone3-max').value) || 84;
-                zone4Min = parseInt(document.getElementById('zone4-min').value) || 85;
-                zone4Max = parseInt(document.getElementById('zone4-max').value) || 98;
-                zone5Min = parseInt(document.getElementById('zone5-min').value) || 99;
-                zone5Max = parseInt(document.getElementById('zone5-max').value) || 100;
+                zone1Max = parseInt(document.getElementById('zone1-max').value) || Math.round(65 / 100 * maxHeartRate);
+                zone2Min = parseInt(document.getElementById('zone2-min').value) || Math.round(66 / 100 * maxHeartRate);
+                zone2Max = parseInt(document.getElementById('zone2-max').value) || Math.round(75 / 100 * maxHeartRate);
+                zone3Min = parseInt(document.getElementById('zone3-min').value) || Math.round(76 / 100 * maxHeartRate);
+                zone3Max = parseInt(document.getElementById('zone3-max').value) || Math.round(84 / 100 * maxHeartRate);
+                zone4Min = parseInt(document.getElementById('zone4-min').value) || Math.round(85 / 100 * maxHeartRate);
+                zone4Max = parseInt(document.getElementById('zone4-max').value) || Math.round(98 / 100 * maxHeartRate);
+                zone5Min = parseInt(document.getElementById('zone5-min').value) || Math.round(99 / 100 * maxHeartRate);
+                zone5Max = parseInt(document.getElementById('zone5-max').value) || Math.round(100 / 100 * maxHeartRate);
             } else {
                 zone1Min = 0;
                 zone1Max = 65;
@@ -513,60 +829,106 @@
                 else hrZone = "Zone 5 (Max Effort)";
             }
 
-            // Carb requirements based on training type and zone
+            // Carb requirements based on training type, zone, and level (Jeukendrup 2014)
+            let maxCarbsPerHour;
+            switch (trainingLevel) {
+                case "beginner":
+                    maxCarbsPerHour = 40;
+                    break;
+                case "intermediate":
+                    maxCarbsPerHour = 60;
+                    break;
+                case "advanced":
+                    maxCarbsPerHour = 90;
+                    break;
+                default:
+                    maxCarbsPerHour = 60;
+            }
+
             let carbsPerHour;
             switch (trainingType) {
                 case "easy":
-                    carbsPerHour = hrZone.includes("Zone 2") ? 40 : 30;
+                    carbsPerHour = hrZone.includes("Zone 1") ? 0 : hrZone.includes("Zone 2") ? 30 : 40;
                     break;
                 case "moderate":
-                    carbsPerHour = hrZone.includes("Zone 3") ? 50 : 40;
+                    carbsPerHour = hrZone.includes("Zone 2") ? 30 : hrZone.includes("Zone 3") ? 40 : 50;
                     break;
                 case "hard":
-                    carbsPerHour = hrZone.includes("Zone 4") ? 70 : 60;
+                    carbsPerHour = hrZone.includes("Zone 3") ? 50 : hrZone.includes("Zone 4") ? 60 : 70;
                     break;
                 case "race":
-                    carbsPerHour = hrZone.includes("Zone 4") ? 80 : hrZone.includes("Zone 3") ? 70 : 60;
+                    carbsPerHour = hrZone.includes("Zone 4") ? 70 : hrZone.includes("Zone 3") ? 60 : 50;
                     break;
                 default:
-                    carbsPerHour = 50;
+                    carbsPerHour = 40;
             }
 
-            // Cap carb intake at 90g/hour
-            if (carbsPerHour > 90) {
-                document.getElementById('carb-warning').textContent = "Warning: Carb intake capped at 90g/hour (maximum absorbable).";
+            // Cap carb intake based on training level
+            if (carbsPerHour > maxCarbsPerHour) {
+                document.getElementById('carb-warning').textContent =
+                    `Warning: Carb intake capped at ${maxCarbsPerHour}g/hour for your training level.`;
                 document.getElementById('carb-warning').style.display = 'block';
-                carbsPerHour = 90;
+                carbsPerHour = maxCarbsPerHour;
             } else {
                 document.getElementById('carb-warning').style.display = 'none';
             }
 
-            // Fluid and sodium adjustments
-            const baseFluidPerHour = 500;
-            const baseSodiumPerHour = 500;
-            const tempFluidAdjustment = temperature > 25 ? 100 : 0;
-            const tempSodiumAdjustment = temperature > 30 ? 200 : 0;
-            const weightFluidAdjustment = bodyWeight * 5; // 5ml/kg/hour
-            const heavySweaterAdjustment = heavySweater ? 200 : 0;
-
-            let fluidPerHour = baseFluidPerHour + tempFluidAdjustment + weightFluidAdjustment;
-            // Cap fluid at 1200ml/hour
-            if (fluidPerHour > 1200) {
-                fluidPerHour = 1200;
+            // Fluid requirements (ACSM 2007, IOC 2019)
+            // Base fluid rates by training type
+            let baseFluidPerHour;
+            switch (trainingType) {
+                case "easy":
+                    baseFluidPerHour = 400; // Lower for easy runs
+                    break;
+                case "moderate":
+                    baseFluidPerHour = 500;
+                    break;
+                case "hard":
+                case "race":
+                    baseFluidPerHour = 600;
+                    break;
+                default:
+                    baseFluidPerHour = 500;
             }
 
-            const sodiumPerHour = baseSodiumPerHour + tempSodiumAdjustment + heavySweaterAdjustment;
+            // Adjust for body weight (5-7 ml/kg/hour, using 6 as middle)
+            const weightFluidAdjustment = bodyWeight * 6;
 
-            // Pre-start recommendations
+            // Adjust for temperature (+100 ml/hour if >25°C, +200 if >30°C)
+            let tempFluidAdjustment = 0;
+            if (temperature > 30) tempFluidAdjustment = 200;
+            else if (temperature > 25) tempFluidAdjustment = 100;
+
+            // Adjust for humidity (+50 ml/hour if >70%)
+            const humidityFluidAdjustment = humidity > 70 ? 50 : 0;
+
+            // Adjust for intensity (+100 ml/hour for Zone 4/5)
+            const intensityFluidAdjustment = (hrZone.includes("Zone 4") || hrZone.includes("Zone 5")) ? 100 : 0;
+
+            let fluidPerHour = baseFluidPerHour + weightFluidAdjustment + tempFluidAdjustment + humidityFluidAdjustment + intensityFluidAdjustment;
+            // Cap fluid at 750 ml/hour (user preference)
+            if (fluidPerHour > 750) {
+                fluidPerHour = 750;
+            }
+
+            // Sodium requirements (Shaw 2014, Thomas 2016)
+            // Sodium per hour = (fluidPerHour / 1000) * sodiumPerLiter
+            const sodiumPerHour = Math.round((fluidPerHour / 1000) * sodiumPerLiter);
+
+            // Additional sodium for heavy sweaters
+            const heavySweaterAdjustment = heavySweater ? 200 : 0;
+
+            // Pre-start recommendations (ACSM 2007)
             const preStartCarbs = Math.round(bodyWeight * 1.5); // 1-2g/kg
-            const preStartFluids = 500;
-            const preStartSodium = 300;
-            const preStartSuggestion = "Oatmeal + Banana";
+            const preStartFluids = 500; // 500 ml 1-2 hours before
+            const preStartSodium = Math.round((preStartFluids / 1000) * sodiumPerLiter);
+            let preStartSuggestion = "Oatmeal + Banana + 500ml Water";
+            let preStartCaffeine = 0;
 
-            // Post-finish recommendations
+            // Post-finish recommendations (ACSM 2007)
             const postFinishCarbs = Math.round(bodyWeight * 1.1); // 1-1.2g/kg
             const postFinishFluids = Math.round(fluidPerHour * duration * 1.5); // 1.5x fluid lost
-            const postFinishSodium = 600;
+            const postFinishSodium = Math.round((postFinishFluids / 1000) * sodiumPerLiter);
             const postFinishSuggestion = "Recovery Shake + Water";
 
             // Fuel selection
@@ -582,48 +944,116 @@
                 const customCarbs = parseInt(document.getElementById('custom-carbs').value) || 25;
                 const customFluids = parseInt(document.getElementById('custom-fluids').value) || 0;
                 const customSodium = parseInt(document.getElementById('custom-sodium').value) || 0;
-                recommendedProducts.push({ name: customName, carbs: customCarbs, fluids: customFluids, sodium: customSodium, servingSize: `${customFluids}ml`, type: "custom" });
+                recommendedProducts.push({ name: customName, carbs: customCarbs, fluids: customFluids, sodium: customSodium, caffeine: 0, potassium: 0, magnesium: 0, servingSize: `${customFluids}ml`, type: "custom" });
             }
+
+            // Caffeine products - prioritize Upfront Cassis if available
+            let recommendedCaffeineProducts = [];
+            if (caffeineGels) {
+                // Add Upfront Cassis first if available, then others
+                const upfrontCassis = caffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
+                if (upfrontCassis) recommendedCaffeineProducts.push(upfrontCassis);
+                recommendedCaffeineProducts.push(...caffeineProducts.filter(p => p.type === "gel" && p.name !== "Upfront Gel (Cassis)"));
+            }
+            if (caffeineDrinks) recommendedCaffeineProducts.push(...caffeineProducts.filter(p => p.type === "drink"));
+            if (caffeineCustom) {
+                const customCaffeineName = document.getElementById('custom-caffeine-name').value || "Custom Caffeine";
+                const customCaffeineAmount = parseInt(document.getElementById('custom-caffeine-amount').value) || 100;
+                recommendedCaffeineProducts.push({ name: customCaffeineName, caffeine: customCaffeineAmount, type: "custom" });
+            }
+
+            // Determine interval (30 min for <= 2 hours, 45 min for > 2 hours)
+            const interval = duration <= 2 ? 30 : 45;
+            const totalMinutes = duration * 60;
 
             // Fueling schedule during activity
             const schedule = [];
-            const interval = duration <= 1 ? 30 : 45; // minutes
-            const totalMinutes = duration * 60;
 
-            // Add pre-start to schedule
+            // Add pre-start to schedule (with caffeine if selected)
+            if (includeCaffeine && (caffeineTiming === 'pre-only' || caffeineTiming === 'pre-mid' || caffeineTiming === 'pre-late')) {
+                // Pre-start caffeine: ~3-4 mg/kg (e.g., 210-280mg for 70kg)
+                const preStartCaffeineTarget = Math.round(bodyWeight * 3.5); // Middle of range
+                if (recommendedCaffeineProducts.length > 0) {
+                    // Prioritize Upfront Cassis for pre-start if available
+                    const upfrontCassis = recommendedCaffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
+                    const preProduct = upfrontCassis || recommendedCaffeineProducts.find(p => p.caffeine <= preStartCaffeineTarget) || recommendedCaffeineProducts[0];
+                    preStartCaffeine = preProduct.caffeine;
+                    preStartSuggestion += ` + ${preProduct.name} (${preStartCaffeine}mg caffeine)`;
+                }
+            }
             schedule.push({
                 time: "-1:00",
                 suggestion: preStartSuggestion,
                 carbs: preStartCarbs,
                 fluids: preStartFluids,
                 sodium: preStartSodium,
+                caffeine: preStartCaffeine,
                 isPrePost: true
             });
 
             // Add during activity intakes
+            let caffeineCount = 0;
+            const maxCaffeineDoses = caffeineTiming === 'pre-late' ? 2 : (caffeineTiming === 'pre-mid' ? 1 : 0);
+
             for (let i = interval; i <= totalMinutes; i += interval) {
-                const timeInHours = i / 60;
-                const carbs = Math.round(carbsPerHour * (i / 60));
-                const fluids = Math.round(fluidPerHour * (i / 60));
-                const sodium = Math.round(sodiumPerHour * (i / 60));
+                const intervalHours = interval / 60;
+                const carbs = Math.round(carbsPerHour * intervalHours);
+                let fluids = Math.round(fluidPerHour * intervalHours);
+
+                // Round fluids to nearest 250ml
+                fluids = roundTo250(fluids);
+
+                // Ensure minimum of 150ml and maximum of 500ml per interval
+                fluids = Math.max(150, Math.min(500, fluids));
+
+                const sodium = Math.round(sodiumPerHour * intervalHours) + (heavySweater ? Math.round(heavySweaterAdjustment * intervalHours) : 0);
 
                 // Select a product based on type preference
                 let product;
                 if (recommendedProducts.length > 0) {
                     // Alternate between gels and drinks if both are selected
-                    const lastProductType = schedule.length > 0 ? schedule[schedule.length - 1].suggestion.type : null;
+                    const lastProductType = schedule.length > 0 ? schedule[schedule.length - 1].type : null;
                     const availableProducts = recommendedProducts.filter(p => !lastProductType || p.type !== lastProductType);
                     product = availableProducts.length > 0 ? availableProducts[0] : recommendedProducts[0];
                 } else {
-                    product = { name: "Water", carbs: 0, fluids: 250, sodium: 0, type: "drink" };
+                    product = { name: "Water", carbs: 0, fluids: 0, sodium: 0, caffeine: 0, potassium: 0, magnesium: 0, type: "drink" };
+                }
+
+                // Calculate additional water needed
+                let additionalWater = fluids - product.fluids;
+                if (additionalWater < 0) additionalWater = 0;
+
+                let suggestion = product.name + (additionalWater > 0 ? ` + ${additionalWater}ml Water` : '');
+                let caffeine = 0;
+                let caffeineSuggestion = "";
+
+                // Caffeine: Only add to 1-2 intervals (e.g., at 1:00 and 2:00 for a 3-hour run)
+                if (includeCaffeine && caffeineCount < maxCaffeineDoses) {
+                    const totalCaffeineSoFar = schedule.reduce((sum, item) => sum + item.caffeine, 0);
+                    const maxCaffeineTotal = bodyWeight * 6; // 6 mg/kg total
+
+                    if (totalCaffeineSoFar + caffeineDose <= maxCaffeineTotal) {
+                        // Add caffeine at strategic points: 1 hour in, and 2 hours in for long events
+                        if ((i >= 60 && caffeineCount === 0) || (i >= 120 && caffeineCount === 1 && maxCaffeineDoses >= 2)) {
+                            if (recommendedCaffeineProducts.length > 0) {
+                                // Prioritize Upfront Cassis for during-activity caffeine
+                                const upfrontCassis = recommendedCaffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
+                                const caffeineProduct = upfrontCassis || recommendedCaffeineProducts.find(p => p.caffeine <= caffeineDose) || recommendedCaffeineProducts[0];
+                                caffeine = caffeineProduct.caffeine;
+                                caffeineSuggestion = ` + ${caffeineProduct.name} (${caffeine}mg caffeine)`;
+                                caffeineCount++;
+                            }
+                        }
+                    }
                 }
 
                 schedule.push({
                     time: formatTime(i),
-                    suggestion: product.name,
+                    suggestion: suggestion + caffeineSuggestion,
                     carbs: product.carbs,
-                    fluids: product.fluids,
-                    sodium: product.sodium,
+                    fluids: product.fluids + additionalWater,
+                    sodium: product.sodium + (heavySweater ? Math.round(heavySweaterAdjustment * intervalHours) : 0),
+                    caffeine: caffeine,
                     isPrePost: false,
                     type: product.type
                 });
@@ -636,6 +1066,7 @@
                 carbs: postFinishCarbs,
                 fluids: postFinishFluids,
                 sodium: postFinishSodium,
+                caffeine: 0,
                 isPrePost: true
             });
 
@@ -643,10 +1074,21 @@
             const totalCarbs = schedule.reduce((sum, item) => sum + item.carbs, 0);
             const totalFluids = schedule.reduce((sum, item) => sum + item.fluids, 0);
             const totalSodium = schedule.reduce((sum, item) => sum + item.sodium, 0);
+            const totalCaffeine = schedule.reduce((sum, item) => sum + item.caffeine, 0);
+
+            // Check caffeine limits
+            const maxCaffeineTotal = bodyWeight * 6; // 6 mg/kg
+            if (totalCaffeine > maxCaffeineTotal) {
+                document.getElementById('caffeine-warning').textContent =
+                    `Warning: Total caffeine (${totalCaffeine}mg) exceeds recommended max of ${maxCaffeineTotal}mg for your weight.`;
+                document.getElementById('caffeine-warning').style.display = 'block';
+            } else {
+                document.getElementById('caffeine-warning').style.display = 'none';
+            }
 
             // Display pre-start and post-finish
             document.getElementById('pre-start-details').innerHTML =
-                `${preStartSuggestion}<br>Carbs: ${preStartCarbs}g, Fluids: ${preStartFluids}ml, Sodium: ${preStartSodium}mg`;
+                `${preStartSuggestion.replace(/\+/g, '<br>+ ')}<br>Carbs: ${preStartCarbs}g, Fluids: ${preStartFluids}ml, Sodium: ${preStartSodium}mg${preStartCaffeine > 0 ? `, Caffeine: ${preStartCaffeine}mg` : ''}`;
             document.getElementById('post-finish-details').innerHTML =
                 `${postFinishSuggestion}<br>Carbs: ${postFinishCarbs}g, Fluids: ${postFinishFluids}ml, Sodium: ${postFinishSodium}mg`;
 
@@ -654,7 +1096,7 @@
             createTimeline(schedule.filter(item => !item.isPrePost), duration);
 
             // Create table
-            createTable(schedule, totalCarbs, totalFluids, totalSodium);
+            createTable(schedule, totalCarbs, totalFluids, totalSodium, totalCaffeine);
 
             // Show results
             document.getElementById('results').style.display = 'block';
@@ -675,8 +1117,8 @@
             const totalMinutes = duration * 60;
             const barWidth = timelineBar.offsetWidth;
 
-            // Add segments (e.g., every 30 or 45 minutes)
-            const segmentInterval = duration <= 1 ? 30 : 45;
+            // Add segments (every 30 or 45 minutes)
+            const segmentInterval = duration <= 2 ? 30 : 45;
             for (let i = segmentInterval; i <= totalMinutes; i += segmentInterval) {
                 const segment = document.createElement('div');
                 segment.className = 'timeline-segment';
@@ -702,15 +1144,17 @@
 
                 // Choose icon based on suggestion
                 let iconHtml;
-                if (item.type === "gel" || item.suggestion.includes("Gel")) {
+                if (item.suggestion.includes("Gel") || item.type === "gel") {
                     iconHtml = '<i class="fas fa-capsules"></i>';
-                } else if (item.type === "drink" || item.suggestion.includes("Drink") || item.suggestion.includes("Water")) {
+                } else if (item.suggestion.includes("Water") || item.type === "drink") {
                     iconHtml = '<i class="fas fa-tint"></i>';
+                } else if (item.suggestion.includes("Coffee") || item.suggestion.includes("caffeine")) {
+                    iconHtml = '<i class="fas fa-coffee"></i>';
                 } else {
                     iconHtml = '<i class="fas fa-utensils"></i>';
                 }
 
-                const tooltip = `${item.time}: ${item.suggestion}\nCarbs: ${item.carbs}g, Fluids: ${item.fluids}ml, Sodium: ${item.sodium}mg`;
+                const tooltip = `${item.time}: ${item.suggestion.replace(/\+/g, ' + ')}\nCarbs: ${item.carbs}g, Fluids: ${item.fluids}ml, Sodium: ${item.sodium}mg${item.caffeine > 0 ? `, Caffeine: ${item.caffeine}mg` : ''}`;
                 icon.innerHTML = iconHtml;
                 icon.setAttribute('data-tooltip', tooltip);
 
@@ -719,7 +1163,7 @@
         }
 
         // Create detailed table
-        function createTable(schedule, totalCarbs, totalFluids, totalSodium) {
+        function createTable(schedule, totalCarbs, totalFluids, totalSodium, totalCaffeine) {
             const tableBody = document.getElementById('fueling-table-body');
             tableBody.innerHTML = '';
 
@@ -727,10 +1171,11 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${item.time}</td>
-                    <td>${item.suggestion}</td>
+                    <td>${item.suggestion.replace(/\+/g, '<br>+ ')}</td>
                     <td>${item.carbs}</td>
                     <td>${item.fluids}</td>
                     <td>${item.sodium}</td>
+                    <td>${item.caffeine}</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -744,6 +1189,7 @@
                 <td><strong>${totalCarbs}</strong></td>
                 <td><strong>${totalFluids}</strong></td>
                 <td><strong>${totalSodium}</strong></td>
+                <td><strong>${totalCaffeine}</strong></td>
             `;
             tableBody.appendChild(totalRow);
         }
@@ -757,7 +1203,26 @@
                 const profile = JSON.parse(savedProfile);
                 document.getElementById('body-weight').value = profile.bodyWeight;
                 document.getElementById('max-heart-rate').value = profile.maxHeartRate;
+                document.getElementById('training-level').value = profile.trainingLevel;
                 document.getElementById('heavy-sweater').checked = profile.heavySweater;
+
+                // Set sweat rate option
+                if (profile.sweatRateOption) {
+                    document.getElementById(`sweat-rate-${profile.sweatRateOption}`).checked = true;
+                    toggleSweatRate();
+                    if (profile.sweatRateOption === 'custom') {
+                        document.getElementById('sodium-per-liter').value = profile.sodiumPerLiter;
+                    }
+                }
+
+                // Set caffeine options if saved
+                if (profile.includeCaffeine) {
+                    document.getElementById('include-caffeine').checked = true;
+                    toggleCaffeineSection();
+                    document.getElementById('caffeine-timing').value = profile.caffeineTiming;
+                    document.getElementById('caffeine-dose').value = profile.caffeineDose;
+                    updateCaffeineDoses();
+                }
             }
         };
     </script>

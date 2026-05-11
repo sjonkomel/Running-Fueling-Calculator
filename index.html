@@ -261,6 +261,17 @@
             flex: 1;
             min-width: 200px;
         }
+        .date-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .date-section input[type="date"] {
+            flex: 1;
+            min-width: 200px;
+        }
         .gi-info {
             font-size: 12px;
             color: #666;
@@ -322,11 +333,11 @@
             .summary-item {
                 min-width: auto;
             }
-            .weather-section {
+            .weather-section, .date-section {
                 flex-direction: column;
                 gap: 5px;
             }
-            .weather-section input {
+            .weather-section input, .date-section input {
                 width: 100%;
             }
         }
@@ -395,6 +406,10 @@
                 <input type="text" id="location" placeholder="e.g., Amsterdam, NL or 10924">
                 <button onclick="fetchWeather()" class="secondary">Get Weather</button>
             </div>
+            <div class="date-section">
+                <label for="training-date">Training Date:</label>
+                <input type="date" id="training-date">
+            </div>
             <div class="inline-group">
                 <div>
                     <label for="temperature">Temperature (°C):</label>
@@ -406,6 +421,12 @@
                 </div>
             </div>
             <div id="weather-status" style="margin-top: 10px; font-size: 14px;"></div>
+        </div>
+
+        <!-- Mistral AI Insights Button -->
+        <div class="section">
+            <button onclick="getTrainingInsights()" class="secondary">Get Mistral AI Training Insights</button>
+            <div id="training-insights" class="insights-section"></div>
         </div>
 
         <!-- Sweat Rate Calculator Section -->
@@ -697,6 +718,13 @@
     </div>
 
     <script>
+        // Set default date to today
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('training-date').value = formattedDate;
+        });
+
         // Toggle custom fuel section
         document.getElementById('custom-fuel').addEventListener('change', function() {
             document.getElementById('custom-fuel-section').style.display = this.checked ? 'block' : 'none';
@@ -723,9 +751,10 @@
                 sweatRateOption === 'custom' ? 'block' : 'none';
         }
 
-        // Fetch weather data from OpenWeatherMap API (direct call first, then proxies)
+        // Fetch weather data from OpenWeatherMap API (direct call first, then proxies, then historical)
         async function fetchWeather() {
             const location = document.getElementById('location').value.trim();
+            const date = document.getElementById('training-date').value;
             if (!location) {
                 document.getElementById('weather-status').textContent = "Please enter a location.";
                 document.getElementById('weather-status').style.color = "#e74c3c";
@@ -742,72 +771,128 @@
             }
 
             const apiKey = "ff9b49be48dd339acbc54bb9389d6fcf";
-            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const selectedDate = new Date(date);
+            const diffTime = Math.abs(selectedDate - today);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             document.getElementById('weather-status').textContent = "Fetching weather data...";
             document.getElementById('weather-status').style.color = "#3498db";
 
+            let data = null;
             try {
                 // Try direct API call first (no proxy)
-                const response = await fetch(apiUrl);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.cod === 200) {
-                        const temperature = Math.round(data.main.temp);
-                        const humidity = data.main.humidity;
-                        document.getElementById('temperature').value = temperature;
-                        document.getElementById('humidity').value = humidity;
-                        document.getElementById('weather-status').textContent = `✅ Weather fetched for ${data.name}, ${data.sys.country}: ${temperature}°C, ${humidity}% humidity.`;
-                        document.getElementById('weather-status').style.color = "#27ae60";
-                        return;
+                let apiUrl;
+                if (diffDays <= 5) {
+                    // Forecast for next 5 days
+                    apiUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${location}&units=metric&appid=${apiKey}`;
+                    const response = await fetch(apiUrl);
+                    if (response.ok) {
+                        data = await response.json();
+                        if (data.cod === "200") {
+                            // Find the forecast for the selected date
+                            const targetDate = new Date(selectedDate);
+                            targetDate.setHours(12, 0, 0, 0); // Midday for consistency
+                            const targetUnix = Math.floor(targetDate.getTime() / 1000);
+
+                            // OpenWeatherMap returns 3-hour intervals, so we find the closest
+                            const forecastList = data.list;
+                            let closestForecast = forecastList[0];
+                            let minDiff = Math.abs(forecastList[0].dt - targetUnix);
+
+                            for (const forecast of forecastList) {
+                                const currentDiff = Math.abs(forecast.dt - targetUnix);
+                                if (currentDiff < minDiff) {
+                                    minDiff = currentDiff;
+                                    closestForecast = forecast;
+                                }
+                            }
+
+                            const temperature = Math.round(closestForecast.main.temp);
+                            const humidity = closestForecast.main.humidity;
+                            document.getElementById('temperature').value = temperature;
+                            document.getElementById('humidity').value = humidity;
+                            document.getElementById('weather-status').textContent = `✅ Weather forecast for ${data.city.name}, ${data.city.country}: ${temperature}°C, ${humidity}% humidity on ${date}.`;
+                            document.getElementById('weather-status').style.color = "#27ae60";
+                            return;
+                        }
+                    }
+                } else {
+                    // Historical data for dates beyond 5 days
+                    const unixTimestamp = Math.floor(selectedDate.getTime() / 1000);
+                    apiUrl = `https://api.openweathermap.org/data/3.0/onecall/timemachine?lat=0&lon=0&dt=${unixTimestamp}&units=metric&appid=${apiKey}`;
+
+                    // First, we need to geocode the location to lat/lon
+                    const geocodeUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=1&appid=${apiKey}`;
+                    const geocodeResponse = await fetch(geocodeUrl);
+                    if (geocodeResponse.ok) {
+                        const geocodeData = await geocodeResponse.json();
+                        if (geocodeData && geocodeData.length > 0) {
+                            const lat = geocodeData[0].lat;
+                            const lon = geocodeData[0].lon;
+                            const historicalUrl = `https://api.openweathermap.org/data/3.0/onecall/timemachine?lat=${lat}&lon=${lon}&dt=${unixTimestamp}&units=metric&appid=${apiKey}`;
+                            const historicalResponse = await fetch(historicalUrl);
+                            if (historicalResponse.ok) {
+                                const historicalData = await historicalResponse.json();
+                                if (historicalData.current) {
+                                    const temperature = Math.round(historicalData.current.temp);
+                                    const humidity = historicalData.current.humidity;
+                                    document.getElementById('temperature').value = temperature;
+                                    document.getElementById('humidity').value = humidity;
+                                    document.getElementById('weather-status').textContent = `✅ Historical weather for ${location}: ${temperature}°C, ${humidity}% humidity on ${date}.`;
+                                    document.getElementById('weather-status').style.color = "#27ae60";
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
-            } catch (error) {
-                console.error("Direct API call failed:", error);
-            }
 
-            // If direct call fails, try with proxies
-            const proxies = [
-                `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
-                `https://corsproxy.io/?${apiUrl}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`
-            ];
+                // If direct call fails, try with proxies for current weather
+                const currentApiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
+                const proxies = [
+                    `https://thingproxy.freeboard.io/fetch/${currentApiUrl}`,
+                    `https://corsproxy.io/?${currentApiUrl}`,
+                    `https://api.allorigins.win/raw?url=${encodeURIComponent(currentApiUrl)}`
+                ];
 
-            let data = null;
-            for (const proxyUrl of proxies) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+                for (const proxyUrl of proxies) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-                    const response = await fetch(proxyUrl, { signal: controller.signal });
-                    clearTimeout(timeoutId);
+                        const response = await fetch(proxyUrl, { signal: controller.signal });
+                        clearTimeout(timeoutId);
 
-                    if (!response.ok) continue;
+                        if (!response.ok) continue;
 
-                    data = await response.json();
-                    if (data.cod === 200) break;
-                } catch (error) {
-                    console.error(`Failed with proxy ${proxyUrl}:`, error);
-                    continue;
+                        data = await response.json();
+                        if (data.cod === 200) break;
+                    } catch (error) {
+                        console.error(`Failed with proxy ${proxyUrl}:`, error);
+                        continue;
+                    }
                 }
+
+                if (data && data.cod === 200) {
+                    const temperature = Math.round(data.main.temp);
+                    const humidity = data.main.humidity;
+                    document.getElementById('temperature').value = temperature;
+                    document.getElementById('humidity').value = humidity;
+                    document.getElementById('weather-status').textContent = `✅ Weather fetched for ${data.name}, ${data.sys.country}: ${temperature}°C, ${humidity}% humidity.`;
+                    document.getElementById('weather-status').style.color = "#27ae60";
+                    return;
+                }
+            } catch (error) {
+                console.error("Weather fetch failed:", error);
             }
 
-            if (!data || data.cod !== 200) {
-                document.getElementById('weather-status').textContent = "Failed to fetch weather. Using Rotterdam fallback (11°C, 64% humidity).";
-                document.getElementById('weather-status').style.color = "#e74c3c";
-                // Fallback to Rotterdam weather
-                document.getElementById('temperature').value = 11;
-                document.getElementById('humidity').value = 64;
-                return;
-            }
-
-            // Success with proxy: Update fields
-            const temperature = Math.round(data.main.temp);
-            const humidity = data.main.humidity;
-            document.getElementById('temperature').value = temperature;
-            document.getElementById('humidity').value = humidity;
-            document.getElementById('weather-status').textContent = `✅ Weather fetched for ${data.name}, ${data.sys.country}: ${temperature}°C, ${humidity}% humidity.`;
-            document.getElementById('weather-status').style.color = "#27ae60";
+            // Fallback to Rotterdam weather
+            document.getElementById('temperature').value = 11;
+            document.getElementById('humidity').value = 64;
+            document.getElementById('weather-status').textContent = "Failed to fetch weather. Using Rotterdam fallback (11°C, 64% humidity).";
+            document.getElementById('weather-status').style.color = "#e74c3c";
         }
 
         // Update caffeine doses based on timing selection
@@ -987,6 +1072,7 @@
             const giTraining = document.getElementById('gi-training').value;
             const bodyWeight = parseFloat(document.getElementById('body-weight').value) || 85;
             const location = document.getElementById('location').value;
+            const date = document.getElementById('training-date').value;
 
             // Calculate heart rate zone
             const hrPercentage = (intendedHeartRate / maxHeartRate) * 100;
@@ -999,6 +1085,21 @@
 
             // Generate insights based on inputs
             let insights = "<strong>🔍 Mistral AI Training Insights:</strong><br><br>";
+
+            // Date-specific insights
+            const trainingDate = new Date(date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const diffTime = Math.abs(trainingDate - today);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 0) {
+                insights += `📅 <strong>Upcoming Training:</strong> Your session is in ${diffDays} day${diffDays !== 1 ? 's' : ''}. `;
+                if (diffDays > 3) {
+                    insights += "Check the weather forecast closer to the date for last-minute adjustments. ";
+                }
+                insights += `<br><br>`;
+            }
 
             // Weather-based insights
             if (temperature > 25) {
@@ -1299,406 +1400,3 @@
                     break;
                 case "hard":
                 case "race":
-                    baseFluidPerHour = 600;
-                    break;
-                default:
-                    baseFluidPerHour = 500;
-            }
-
-            // Adjust for body weight (5-7 ml/kg/hour, using 6 as middle)
-            const weightFluidAdjustment = bodyWeight * 6;
-
-            // Adjust for temperature (+100 ml/hour if >25°C, +200 if >30°C)
-            let tempFluidAdjustment = 0;
-            if (temperature > 30) tempFluidAdjustment = 200;
-            else if (temperature > 25) tempFluidAdjustment = 100;
-
-            // Adjust for humidity (+50 ml/hour if >70%)
-            const humidityFluidAdjustment = humidity > 70 ? 50 : 0;
-
-            // Adjust for intensity (+100 ml/hour for Zone 4/5)
-            const intensityFluidAdjustment = (hrZone.includes("Zone 4") || hrZone.includes("Zone 5")) ? 100 : 0;
-
-            let fluidPerHour = baseFluidPerHour + weightFluidAdjustment + tempFluidAdjustment + humidityFluidAdjustment + intensityFluidAdjustment;
-            // Cap fluid at 750 ml/hour (user preference)
-            if (fluidPerHour > 750) {
-                fluidPerHour = 750;
-            }
-
-            // Sodium requirements (Shaw 2014, Thomas 2016)
-            // Sodium per hour = (fluidPerHour / 1000) * sodiumPerLiter
-            const sodiumPerHour = Math.round((fluidPerHour / 1000) * sodiumPerLiter);
-
-            // Additional sodium for heavy sweaters
-            const heavySweaterAdjustment = heavySweater ? 200 : 0;
-
-            // Pre-start recommendations (ACSM 2007)
-            const preStartCarbs = Math.round(bodyWeight * 1.5); // 1-2g/kg
-            const preStartFluids = 500; // 500 ml 1-2 hours before
-            const preStartSodium = Math.round((preStartFluids / 1000) * sodiumPerLiter);
-            let preStartSuggestion = "Oatmeal + Banana + 500ml Water";
-            let preStartCaffeine = 0;
-
-            // Post-finish recommendations (ACSM 2007)
-            const postFinishCarbs = Math.round(bodyWeight * 1.1); // 1-1.2g/kg
-            const postFinishFluids = Math.round(fluidPerHour * duration * 1.5); // 1.5x fluid lost
-            const postFinishSodium = Math.round((postFinishFluids / 1000) * sodiumPerLiter);
-            const postFinishSuggestion = "Recovery Shake + Water";
-
-            // Fuel selection
-            const brandGels = document.getElementById('brand-gels').checked;
-            const brandDrinks = document.getElementById('brand-drinks').checked;
-            const customFuel = document.getElementById('custom-fuel').checked;
-
-            let recommendedProducts = [];
-            if (brandGels) recommendedProducts.push(...productDatabase.filter(p => p.type === "gel"));
-            if (brandDrinks) recommendedProducts.push(...productDatabase.filter(p => p.type === "drink"));
-            if (customFuel) {
-                const customName = document.getElementById('custom-name').value || "Custom Fuel";
-                const customCarbs = parseInt(document.getElementById('custom-carbs').value) || 25;
-                const customFluids = parseInt(document.getElementById('custom-fluids').value) || 0;
-                const customSodium = parseInt(document.getElementById('custom-sodium').value) || 0;
-                recommendedProducts.push({ name: customName, carbs: customCarbs, fluids: customFluids, sodium: customSodium, caffeine: 0, potassium: 0, magnesium: 0, servingSize: `${customFluids}ml`, type: "custom" });
-            }
-
-            // Caffeine products - prioritize Upfront Cassis if available
-            let recommendedCaffeineProducts = [];
-            if (document.getElementById('caffeine-gels').checked) {
-                // Add Upfront Cassis first if available, then others
-                const upfrontCassis = caffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
-                if (upfrontCassis) recommendedCaffeineProducts.push(upfrontCassis);
-                recommendedCaffeineProducts.push(...caffeineProducts.filter(p => p.type === "gel" && p.name !== "Upfront Gel (Cassis)"));
-            }
-            if (document.getElementById('caffeine-drinks').checked) recommendedCaffeineProducts.push(...caffeineProducts.filter(p => p.type === "drink"));
-            if (document.getElementById('caffeine-custom').checked) {
-                const customCaffeineName = document.getElementById('custom-caffeine-name').value || "Custom Caffeine";
-                const customCaffeineAmount = parseInt(document.getElementById('custom-caffeine-amount').value) || 100;
-                recommendedCaffeineProducts.push({ name: customCaffeineName, caffeine: customCaffeineAmount, type: "custom" });
-            }
-
-            // Determine interval (30 min for <= 2 hours, 45 min for > 2 hours)
-            const interval = duration <= 2 ? 30 : 45;
-            const totalMinutes = duration * 60;
-
-            // Fueling schedule during activity
-            const schedule = [];
-
-            // Add pre-start to schedule (with caffeine if selected)
-            if (includeCaffeine && (caffeineTiming === 'pre-only' || caffeineTiming === 'pre-mid' || caffeineTiming === 'pre-late')) {
-                // Pre-start caffeine: ~3-4 mg/kg (e.g., 210-280mg for 70kg)
-                const preStartCaffeineTarget = Math.round(bodyWeight * 3.5); // Middle of range
-                if (recommendedCaffeineProducts.length > 0) {
-                    // Prioritize Upfront Cassis for pre-start if available
-                    const upfrontCassis = recommendedCaffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
-                    const preProduct = upfrontCassis || recommendedCaffeineProducts.find(p => p.caffeine <= preStartCaffeineTarget) || recommendedCaffeineProducts[0];
-                    preStartCaffeine = preProduct.caffeine;
-                    preStartSuggestion += ` + ${preProduct.name} (${preStartCaffeine}mg caffeine)`;
-                }
-            }
-            schedule.push({
-                time: "-1:00",
-                suggestion: preStartSuggestion,
-                carbs: preStartCarbs,
-                fluids: preStartFluids,
-                sodium: preStartSodium,
-                caffeine: preStartCaffeine,
-                isPrePost: true
-            });
-
-            // Add during activity intakes
-            let caffeineCount = 0;
-            const maxCaffeineDoses = caffeineTiming === 'pre-late' ? 2 : (caffeineTiming === 'pre-mid' ? 1 : 0);
-
-            for (let i = interval; i <= totalMinutes; i += interval) {
-                // Skip if this interval is after (Finish - 30 mins)
-                if (i > totalMinutes - 30) {
-                    break;
-                }
-                const intervalHours = interval / 60;
-                const carbs = Math.round(carbsPerHour * intervalHours);
-                let fluids = Math.round(fluidPerHour * intervalHours);
-
-                // Round fluids to nearest 250ml
-                fluids = roundTo250(fluids);
-
-                // Ensure minimum of 150ml and maximum of 500ml per interval
-                fluids = Math.max(150, Math.min(500, fluids));
-
-                const sodium = Math.round(sodiumPerHour * intervalHours) + (heavySweater ? Math.round(heavySweaterAdjustment * intervalHours) : 0);
-
-                // Select a product based on type preference
-                let product;
-                if (recommendedProducts.length > 0) {
-                    // Alternate between gels and drinks if both are selected
-                    const lastProductType = schedule.length > 0 ? schedule[schedule.length - 1].type : null;
-                    const availableProducts = recommendedProducts.filter(p => !lastProductType || p.type !== lastProductType);
-                    product = availableProducts.length > 0 ? availableProducts[0] : recommendedProducts[0];
-                } else {
-                    product = { name: "Water", carbs: 0, fluids: 0, sodium: 0, caffeine: 0, potassium: 0, magnesium: 0, type: "drink" };
-                }
-
-                // Calculate additional water needed
-                let additionalWater = fluids - product.fluids;
-                if (additionalWater < 0) additionalWater = 0;
-
-                let suggestion = product.name + (additionalWater > 0 ? ` + ${additionalWater}ml Water` : '');
-                let caffeine = 0;
-                let caffeineSuggestion = "";
-
-                // Caffeine: Only add to 1-2 intervals (e.g., at 1:00 and 2:00 for a 3-hour run)
-                if (includeCaffeine && caffeineCount < maxCaffeineDoses) {
-                    const totalCaffeineSoFar = schedule.reduce((sum, item) => sum + item.caffeine, 0);
-                    const maxCaffeineTotal = bodyWeight * 6; // 6 mg/kg total
-
-                    if (totalCaffeineSoFar + caffeineDose <= maxCaffeineTotal) {
-                        // Add caffeine at strategic points: 1 hour in, and 2 hours in for long events
-                        if ((i >= 60 && caffeineCount === 0) || (i >= 120 && caffeineCount === 1 && maxCaffeineDoses >= 2)) {
-                            if (recommendedCaffeineProducts.length > 0) {
-                                // Prioritize Upfront Cassis for during-activity caffeine
-                                const upfrontCassis = recommendedCaffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
-                                const caffeineProduct = upfrontCassis || recommendedCaffeineProducts.find(p => p.caffeine <= caffeineDose) || recommendedCaffeineProducts[0];
-                                caffeine = caffeineProduct.caffeine;
-                                caffeineSuggestion = ` + ${caffeineProduct.name} (${caffeine}mg caffeine)`;
-                                caffeineCount++;
-                            }
-                        }
-                    }
-                }
-
-                schedule.push({
-                    time: formatTime(i),
-                    suggestion: suggestion + caffeineSuggestion,
-                    carbs: product.carbs,
-                    fluids: product.fluids + additionalWater,
-                    sodium: product.sodium + (heavySweater ? Math.round(heavySweaterAdjustment * intervalHours) : 0),
-                    caffeine: caffeine,
-                    isPrePost: false,
-                    type: product.type
-                });
-            }
-
-            // Add final fueling point at Finish - 0:30 if not already added
-            const lastFuelingTime = totalMinutes - 30;
-            if (lastFuelingTime > 0 && !schedule.some(item => item.time === formatTime(lastFuelingTime))) {
-                const intervalHours = 0.5; // 30 mins
-                const carbs = Math.round(carbsPerHour * intervalHours);
-                let fluids = Math.round(fluidPerHour * intervalHours);
-                fluids = roundTo250(fluids);
-                fluids = Math.max(150, Math.min(500, fluids));
-                const sodium = Math.round(sodiumPerHour * intervalHours) + (heavySweater ? Math.round(heavySweaterAdjustment * intervalHours) : 0);
-
-                // Select a product for the final fueling point
-                let product;
-                if (recommendedProducts.length > 0) {
-                    const lastProductType = schedule.length > 0 ? schedule[schedule.length - 1].type : null;
-                    const availableProducts = recommendedProducts.filter(p => !lastProductType || p.type !== lastProductType);
-                    product = availableProducts.length > 0 ? availableProducts[0] : recommendedProducts[0];
-                } else {
-                    product = { name: "Water", carbs: 0, fluids: 0, sodium: 0, caffeine: 0, potassium: 0, magnesium: 0, type: "drink" };
-                }
-
-                let additionalWater = fluids - product.fluids;
-                if (additionalWater < 0) additionalWater = 0;
-
-                let suggestion = product.name + (additionalWater > 0 ? ` + ${additionalWater}ml Water` : '');
-                let caffeine = 0;
-                let caffeineSuggestion = "";
-
-                // Add caffeine if applicable (e.g., for late-stage boost)
-                if (includeCaffeine && caffeineCount < maxCaffeineDoses) {
-                    const totalCaffeineSoFar = schedule.reduce((sum, item) => sum + item.caffeine, 0);
-                    const maxCaffeineTotal = bodyWeight * 6; // 6 mg/kg total
-                    if (totalCaffeineSoFar + caffeineDose <= maxCaffeineTotal) {
-                        if (lastFuelingTime >= 60 && caffeineCount < maxCaffeineDoses) {
-                            if (recommendedCaffeineProducts.length > 0) {
-                                const upfrontCassis = recommendedCaffeineProducts.find(p => p.name === "Upfront Gel (Cassis)");
-                                const caffeineProduct = upfrontCassis || recommendedCaffeineProducts.find(p => p.caffeine <= caffeineDose) || recommendedCaffeineProducts[0];
-                                caffeine = caffeineProduct.caffeine;
-                                caffeineSuggestion = ` + ${caffeineProduct.name} (${caffeine}mg caffeine)`;
-                                caffeineCount++;
-                            }
-                        }
-                    }
-                }
-
-                schedule.push({
-                    time: formatTime(lastFuelingTime),
-                    suggestion: suggestion + caffeineSuggestion,
-                    carbs: product.carbs,
-                    fluids: product.fluids + additionalWater,
-                    sodium: product.sodium + (heavySweater ? Math.round(heavySweaterAdjustment * intervalHours) : 0),
-                    caffeine: caffeine,
-                    isPrePost: false,
-                    type: product.type
-                });
-            }
-
-            // Add post-finish to schedule
-            schedule.push({
-                time: `Finish + 0:30`,
-                suggestion: postFinishSuggestion,
-                carbs: postFinishCarbs,
-                fluids: postFinishFluids,
-                sodium: postFinishSodium,
-                caffeine: 0,
-                isPrePost: true
-            });
-
-            // Calculate totals
-            const totalCarbs = schedule.reduce((sum, item) => sum + item.carbs, 0);
-            const totalFluids = schedule.reduce((sum, item) => sum + item.fluids, 0);
-            const totalSodium = schedule.reduce((sum, item) => sum + item.sodium, 0);
-            const totalCaffeine = schedule.reduce((sum, item) => sum + item.caffeine, 0);
-
-            // Calculate averages per hour for dashboard
-            const avgCarbsPerHour = Math.round(totalCarbs / duration);
-            const avgFluidsPerHour = Math.round(totalFluids / duration);
-            const avgSodiumPerHour = Math.round(totalSodium / duration);
-
-            // Update dashboard
-            document.getElementById('summary-duration').textContent = formatTime(totalMinutes);
-            document.getElementById('summary-carbs').textContent = `${avgCarbsPerHour}g`;
-            document.getElementById('summary-carbs-target').textContent = `${carbsPerHour}g/hour`;
-            document.getElementById('summary-fluids').textContent = `${avgFluidsPerHour}ml`;
-            document.getElementById('summary-fluids-target').textContent = `${fluidPerHour}ml/hour`;
-            document.getElementById('summary-sodium').textContent = `${avgSodiumPerHour}mg`;
-            document.getElementById('summary-sodium-target').textContent = `${sodiumPerHour}mg/hour`;
-
-            // Check caffeine limits
-            const maxCaffeineTotal = bodyWeight * 6; // 6 mg/kg
-            if (totalCaffeine > maxCaffeineTotal) {
-                document.getElementById('caffeine-warning').textContent =
-                    `Warning: Total caffeine (${totalCaffeine}mg) exceeds recommended max of ${maxCaffeineTotal}mg for your weight.`;
-                document.getElementById('caffeine-warning').style.display = 'block';
-            } else {
-                document.getElementById('caffeine-warning').style.display = 'none';
-            }
-
-            // Display pre-start and post-finish
-            document.getElementById('pre-start-details').innerHTML =
-                `${preStartSuggestion.replace(/\+/g, '<br>+ ')}<br>Carbs: ${preStartCarbs}g, Fluids: ${preStartFluids}ml, Sodium: ${preStartSodium}mg${preStartCaffeine > 0 ? `, Caffeine: ${preStartCaffeine}mg` : ''}`;
-            document.getElementById('post-finish-details').innerHTML =
-                `${postFinishSuggestion}<br>Carbs: ${postFinishCarbs}g, Fluids: ${postFinishFluids}ml, Sodium: ${postFinishSodium}mg`;
-
-            // Create timeline
-            createTimeline(schedule.filter(item => !item.isPrePost), duration);
-
-            // Create table
-            createTable(schedule, totalCarbs, totalFluids, totalSodium, totalCaffeine);
-
-            // Show results
-            document.getElementById('results').style.display = 'block';
-        }
-
-        // Format time from minutes to HH:MM
-        function formatTime(minutes) {
-            const hrs = Math.floor(minutes / 60);
-            const mins = minutes % 60;
-            return `${hrs}:${mins.toString().padStart(2, '0')}`;
-        }
-
-        // Create visual timeline
-        function createTimeline(schedule, duration) {
-            const timelineBar = document.getElementById('timeline-bar');
-            timelineBar.innerHTML = '';
-
-            const totalMinutes = duration * 60;
-            const barWidth = timelineBar.offsetWidth;
-
-            // Add segments (every 30 or 45 minutes)
-            const segmentInterval = duration <= 2 ? 30 : 45;
-            for (let i = segmentInterval; i <= totalMinutes; i += segmentInterval) {
-                const segment = document.createElement('div');
-                segment.className = 'timeline-segment';
-                segment.style.left = `${(i / totalMinutes) * 100}%`;
-                timelineBar.appendChild(segment);
-
-                const label = document.createElement('div');
-                label.className = 'timeline-label';
-                label.textContent = formatTime(i);
-                label.style.left = `${(i / totalMinutes) * 100}%`;
-                timelineBar.parentNode.appendChild(label);
-            }
-
-            // Add intake icons
-            schedule.forEach(item => {
-                const [hrs, mins] = item.time.split(':').map(Number);
-                const totalItemMinutes = hrs * 60 + mins;
-                const positionPercentage = (totalItemMinutes / totalMinutes) * 100;
-
-                const icon = document.createElement('div');
-                icon.className = 'intake-icon';
-                icon.style.left = `${positionPercentage}%`;
-
-                // Choose icon based on suggestion
-                let iconHtml;
-                if (item.suggestion.includes("Gel") || item.type === "gel") {
-                    iconHtml = '<i class="fas fa-capsules"></i>';
-                } else if (item.suggestion.includes("Water") || item.type === "drink") {
-                    iconHtml = '<i class="fas fa-tint"></i>';
-                } else if (item.suggestion.includes("Coffee") || item.suggestion.includes("caffeine")) {
-                    iconHtml = '<i class="fas fa-coffee"></i>';
-                } else {
-                    iconHtml = '<i class="fas fa-utensils"></i>';
-                }
-
-                const tooltip = `${item.time}: ${item.suggestion.replace(/\+/g, ' + ')}\nCarbs: ${item.carbs}g, Fluids: ${item.fluids}ml, Sodium: ${item.sodium}mg${item.caffeine > 0 ? `, Caffeine: ${item.caffeine}mg` : ''}`;
-                icon.innerHTML = iconHtml;
-                icon.setAttribute('data-tooltip', tooltip);
-
-                timelineBar.parentNode.appendChild(icon);
-            });
-        }
-
-        // Create detailed table
-        function createTable(schedule, totalCarbs, totalFluids, totalSodium, totalCaffeine) {
-            const tableBody = document.getElementById('fueling-table-body');
-            tableBody.innerHTML = '';
-
-            schedule.forEach(item => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.time}</td>
-                    <td>${item.suggestion.replace(/\+/g, '<br>+ ')}</td>
-                    <td>${item.carbs}</td>
-                    <td>${item.fluids}</td>
-                    <td>${item.sodium}</td>
-                    <td>${item.caffeine}</td>
-                `;
-                tableBody.appendChild(row);
-            });
-
-            // Add total row
-            const totalRow = document.createElement('tr');
-            totalRow.className = 'total-row';
-            totalRow.innerHTML = `
-                <td><strong>Total</strong></td>
-                <td></td>
-                <td><strong>${totalCarbs}</strong></td>
-                <td><strong>${totalFluids}</strong></td>
-                <td><strong>${totalSodium}</strong></td>
-                <td><strong>${totalCaffeine}</strong></td>
-            `;
-            tableBody.appendChild(totalRow);
-        }
-
-        // Initialize on page load
-        window.onload = function() {
-            updateHeartRateZone();
-            // Load profile or set defaults
-            const savedProfile = localStorage.getItem('fuelingProfile');
-            if (savedProfile) {
-                loadProfile();
-            } else {
-                // Set defaults for new users
-                document.getElementById('location').value = 'Rotterdam';
-                document.getElementById('body-weight').value = 85;
-                document.getElementById('temperature').value = 11;
-                document.getElementById('humidity').value = 64;
-                document.getElementById('weather-status').textContent = "✅ Using default weather for Rotterdam, NL: 11°C, 64% humidity.";
-                document.getElementById('weather-status').style.color = "#27ae60";
-            }
-        };
-    </script>
-</body>
-</html>

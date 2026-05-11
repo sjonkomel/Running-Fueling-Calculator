@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fueling & Hydration Calculator for Running</title>
+    <title>Sjonk's fueling calculator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
@@ -161,29 +161,32 @@
         }
         .timeline-label {
             position: absolute;
-            top: 15px;
+            top: 30px;
             font-size: 12px;
             color: #555;
+            transform: translateX(-50%);
+            white-space: nowrap;
         }
         .intake-icon {
             position: absolute;
-            top: -20px;
-            width: 40px;
-            height: 40px;
+            top: -10px;
+            width: 30px;
+            height: 30px;
             background-color: #e74c3c;
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
             color: white;
-            font-size: 18px;
+            font-size: 14px;
             cursor: pointer;
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            z-index: 1;
         }
         .intake-icon:hover::after {
             content: attr(data-tooltip);
             position: absolute;
-            top: -50px;
+            top: -40px;
             left: 50%;
             transform: translateX(-50%);
             background-color: #333;
@@ -263,6 +266,23 @@
             color: #666;
             margin-top: 5px;
         }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #fueling-table, #fueling-table * {
+                visibility: visible;
+            }
+            #fueling-table {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none;
+            }
+        }
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -274,9 +294,13 @@
                 height: 60px;
             }
             .intake-icon {
-                width: 30px;
-                height: 30px;
-                font-size: 14px;
+                width: 25px;
+                height: 25px;
+                font-size: 12px;
+            }
+            .timeline-label {
+                font-size: 10px;
+                top: 25px;
             }
             table {
                 font-size: 12px;
@@ -382,12 +406,6 @@
                 </div>
             </div>
             <div id="weather-status" style="margin-top: 10px; font-size: 14px;"></div>
-        </div>
-
-        <!-- Mistral AI Insights Button -->
-        <div class="section">
-            <button onclick="getTrainingInsights()" class="secondary">Get Mistral AI Training Insights</button>
-            <div id="training-insights" class="insights-section"></div>
         </div>
 
         <!-- Sweat Rate Calculator Section -->
@@ -637,6 +655,12 @@
                 </table>
             </div>
 
+            <!-- Mistral AI Insights Section (moved here) -->
+            <div class="section">
+                <button onclick="getTrainingInsights()" class="secondary">Get Mistral AI Training Insights</button>
+                <div id="training-insights" class="insights-section"></div>
+            </div>
+
             <div class="references-section">
                 <h3>Scientific References</h3>
                 <p>
@@ -699,7 +723,7 @@
                 sweatRateOption === 'custom' ? 'block' : 'none';
         }
 
-        // Fetch weather data from OpenWeatherMap API with fallback to hardcoded Rotterdam data
+        // Fetch weather data from OpenWeatherMap API with fallback to hardcoded data
         async function fetchWeather() {
             const location = document.getElementById('location').value.trim();
             if (!location) {
@@ -710,7 +734,7 @@
 
             // Hardcoded fallback for Rotterdam (based on your API response)
             if (location.toLowerCase().includes("rotterdam")) {
-                document.getElementById('temperature').value = 11; // Rounded from 10.73°C
+                document.getElementById('temperature').value = 11;
                 document.getElementById('humidity').value = 64;
                 document.getElementById('weather-status').textContent = "✅ Weather fetched for Rotterdam, NL: 11°C, 64% humidity.";
                 document.getElementById('weather-status').style.color = "#27ae60";

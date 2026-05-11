@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sjonk's fueling calculator</title>
+    <title>Fueling & Hydration Calculator for Running</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
@@ -655,7 +655,7 @@
                 </table>
             </div>
 
-            <!-- Mistral AI Insights Section (moved here) -->
+            <!-- Mistral AI Insights Section -->
             <div class="section">
                 <button onclick="getTrainingInsights()" class="secondary">Get Mistral AI Training Insights</button>
                 <div id="training-insights" class="insights-section"></div>
@@ -723,7 +723,7 @@
                 sweatRateOption === 'custom' ? 'block' : 'none';
         }
 
-        // Fetch weather data from OpenWeatherMap API with fallback to hardcoded data
+        // Fetch weather data from OpenWeatherMap API (direct call first, then proxies)
         async function fetchWeather() {
             const location = document.getElementById('location').value.trim();
             if (!location) {
@@ -732,7 +732,7 @@
                 return;
             }
 
-            // Hardcoded fallback for Rotterdam (based on your API response)
+            // Hardcoded fallback for Rotterdam
             if (location.toLowerCase().includes("rotterdam")) {
                 document.getElementById('temperature').value = 11;
                 document.getElementById('humidity').value = 64;
@@ -741,39 +741,73 @@
                 return;
             }
 
-            // For other locations, try the API with a CORS proxy
             const apiKey = "ff9b49be48dd339acbc54bb9389d6fcf";
             const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
 
             document.getElementById('weather-status').textContent = "Fetching weather data...";
             document.getElementById('weather-status').style.color = "#3498db";
 
             try {
-                const response = await fetch(proxyUrl);
-                if (!response.ok) {
-                    throw new Error("Failed to fetch weather data.");
-                }
-                const data = await response.json();
-
-                if (data.cod === 200) {
-                    const temperature = Math.round(data.main.temp);
-                    const humidity = data.main.humidity;
-                    document.getElementById('temperature').value = temperature;
-                    document.getElementById('humidity').value = humidity;
-                    document.getElementById('weather-status').textContent = `✅ Weather fetched for ${data.name}, ${data.sys.country}: ${temperature}°C, ${humidity}% humidity.`;
-                    document.getElementById('weather-status').style.color = "#27ae60";
-                } else {
-                    document.getElementById('weather-status').textContent = "Location not found. Please try another city or ZIP code.";
-                    document.getElementById('weather-status').style.color = "#e74c3c";
+                // Try direct API call first (no proxy)
+                const response = await fetch(apiUrl);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.cod === 200) {
+                        const temperature = Math.round(data.main.temp);
+                        const humidity = data.main.humidity;
+                        document.getElementById('temperature').value = temperature;
+                        document.getElementById('humidity').value = humidity;
+                        document.getElementById('weather-status').textContent = `✅ Weather fetched for ${data.name}, ${data.sys.country}: ${temperature}°C, ${humidity}% humidity.`;
+                        document.getElementById('weather-status').style.color = "#27ae60";
+                        return;
+                    }
                 }
             } catch (error) {
+                console.error("Direct API call failed:", error);
+            }
+
+            // If direct call fails, try with proxies
+            const proxies = [
+                `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
+                `https://corsproxy.io/?${apiUrl}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`
+            ];
+
+            let data = null;
+            for (const proxyUrl of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+
+                    const response = await fetch(proxyUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) continue;
+
+                    data = await response.json();
+                    if (data.cod === 200) break;
+                } catch (error) {
+                    console.error(`Failed with proxy ${proxyUrl}:`, error);
+                    continue;
+                }
+            }
+
+            if (!data || data.cod !== 200) {
                 document.getElementById('weather-status').textContent = "Failed to fetch weather. Using Rotterdam fallback (11°C, 64% humidity).";
                 document.getElementById('weather-status').style.color = "#e74c3c";
                 // Fallback to Rotterdam weather
                 document.getElementById('temperature').value = 11;
                 document.getElementById('humidity').value = 64;
+                return;
             }
+
+            // Success with proxy: Update fields
+            const temperature = Math.round(data.main.temp);
+            const humidity = data.main.humidity;
+            document.getElementById('temperature').value = temperature;
+            document.getElementById('humidity').value = humidity;
+            document.getElementById('weather-status').textContent = `✅ Weather fetched for ${data.name}, ${data.sys.country}: ${temperature}°C, ${humidity}% humidity.`;
+            document.getElementById('weather-status').style.color = "#27ae60";
         }
 
         // Update caffeine doses based on timing selection

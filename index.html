@@ -165,6 +165,7 @@
             position: absolute;
             text-align: center;
             font-weight: bold;
+            color: #2c3e50;
         }
         .gauge-value {
             font-size: 24px;
@@ -335,6 +336,7 @@
             align-items: center;
             font-weight: bold;
             color: white;
+            border: 2px solid white;
         }
         .score-1-3 { background-color: #e74c3c; }
         .score-4-6 { background-color: #f39c12; }
@@ -350,6 +352,11 @@
         }
         .training-info {
             font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .score-info {
+            font-size: 10px;
             color: #666;
             margin-top: 5px;
         }
@@ -513,13 +520,16 @@
                     <div>
                         <div><strong>Running Conditions:</strong> <span id="score-description">Good</span></div>
                         <div id="score-explanation" style="font-size: 12px; color: #666;"></div>
+                        <div class="score-info">
+                            <strong>Based on:</strong> Marathon Handbook research (5-15°C = optimal)
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="inline-group">
                 <div>
                     <label for="temperature">Temperature (°C):</label>
-                    <input type="number" id="temperature" min="-10" max="50" value="11" step="0.1">
+                    <input type="number" id="temperature" min="-20" max="50" value="11" step="0.1">
                 </div>
                 <div>
                     <label for="humidity">Humidity (%):</label>
@@ -783,6 +793,10 @@
                 </p>
                 <ul>
                     <li>
+                        <strong>Marathon Handbook (2023):</strong> Optimal running temperature is 5-15°C (41-59°F). Performance declines by ~2% per °C above 15°C.
+                        <a href="https://marathonhandbook.com/best-temperature-for-running/" target="_blank">Best Temperature for Running</a>
+                    </li>
+                    <li>
                         <strong>ACSM (2007):</strong> Fluid replacement should aim to prevent excessive dehydration (>2% body weight loss). Fluid intake of 400-800 ml/hour is recommended.
                         <a href="https://www.acsm.org/" target="_blank">ACSM Position Stand on Exercise and Fluid Replacement</a>
                     </li>
@@ -830,6 +844,91 @@
             'race': { zone: 'Zone 3-4', min: 76, max: 98, description: 'Race pace, high intensity' },
             'interval': { zone: 'Mixed Zones', min: 76, max: 98, description: 'Varies between Zone 3 and 4' }
         };
+
+        // Marathon Handbook-based running score calculation
+        function calculateRunningScore(temperature, humidity, weatherId, weatherDescription) {
+            let score = 5; // Start with average
+
+            // Temperature adjustments (based on Marathon Handbook research)
+            // Optimal: 5-15°C = +2 to +3
+            // Good: 0-5°C or 15-20°C = +1 to +2
+            // Challenging: <0°C or >20°C = -1 to -3
+            // Extreme: < -10°C or >30°C = -4 to -5
+            if (temperature < -10) {
+                score -= 5; // Extreme cold
+            } else if (temperature < 0) {
+                score -= 3; // Very cold
+            } else if (temperature < 5) {
+                score -= 1; // Cold
+            } else if (temperature >= 5 && temperature <= 15) {
+                score += 3; // Optimal range (5-15°C)
+            } else if (temperature > 15 && temperature <= 20) {
+                score += 2; // Good range (15-20°C)
+            } else if (temperature > 20 && temperature <= 25) {
+                score -= 1; // Warm
+            } else if (temperature > 25 && temperature <= 30) {
+                score -= 3; // Hot
+            } else if (temperature > 30) {
+                score -= 5; // Very hot
+            }
+
+            // Humidity adjustments (based on Marathon Handbook)
+            // Ideal: 30-60% = +1
+            // High: >60% = -1 to -2
+            // Very high: >80% = -3
+            // Low: <30% = -1 (can dry out airways)
+            if (humidity < 20) {
+                score -= 2; // Very dry
+            } else if (humidity < 30) {
+                score -= 1; // Dry
+            } else if (humidity >= 30 && humidity <= 60) {
+                score += 1; // Ideal humidity
+            } else if (humidity > 60 && humidity <= 80) {
+                score -= 1; // Humid
+            } else if (humidity > 80) {
+                score -= 2; // Very humid
+            }
+
+            // Weather condition adjustments
+            if (weatherDescription) {
+                const descLower = weatherDescription.toLowerCase();
+                if (descLower.includes('rain') || descLower.includes('drizzle')) {
+                    score -= 2;
+                } else if (descLower.includes('snow')) {
+                    score -= 3;
+                } else if (descLower.includes('thunderstorm')) {
+                    score -= 4;
+                } else if (descLower.includes('clear')) {
+                    score += 1;
+                } else if (descLower.includes('cloud')) {
+                    score += 0; // Neutral
+                }
+            }
+
+            // Ensure score is between 1 and 10
+            score = Math.max(1, Math.min(10, Math.round(score)));
+
+            // Determine description and explanation (based on Marathon Handbook)
+            let description, explanation;
+            if (score >= 9) {
+                description = "Perfect";
+                explanation = "Ideal temperature (5-15°C) and humidity (30-60%). Optimal conditions for peak performance!";
+            } else if (score >= 7) {
+                description = "Good";
+                explanation = "Favorable conditions. Close to optimal temperature/humidity range.";
+            } else if (score >= 5) {
+                description = "Moderate";
+                explanation = "Average conditions. Be mindful of hydration and pacing.";
+            } else if (score >= 3) {
+                description = "Challenging";
+                explanation = "Difficult conditions. Consider adjusting intensity or duration.";
+            } else {
+                description = "Very Hard";
+                explanation = "Extreme conditions. Indoor training or rest may be advisable.";
+            }
+
+            return { score, description, explanation };
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date();
@@ -893,71 +992,6 @@
                 sweatRateCustomSection.style.display =
                     sweatRateOption === 'custom' ? 'block' : 'none';
             }
-        }
-
-        function calculateRunningScore(temperature, humidity, weatherId, weatherDescription) {
-            let score = 5;
-
-            if (temperature < 0) {
-                score -= 3;
-            } else if (temperature >= 0 && temperature < 5) {
-                score -= 2;
-            } else if (temperature >= 5 && temperature < 10) {
-                score -= 1;
-            } else if (temperature >= 10 && temperature < 15) {
-                score += 1;
-            } else if (temperature >= 15 && temperature < 20) {
-                score += 2;
-            } else if (temperature >= 20 && temperature < 25) {
-                score += 1;
-            } else if (temperature >= 25 && temperature < 30) {
-                score -= 1;
-            } else if (temperature >= 30) {
-                score -= 3;
-            }
-
-            if (humidity > 80) {
-                score -= 2;
-            } else if (humidity > 70) {
-                score -= 1;
-            } else if (humidity < 30) {
-                score += 1;
-            }
-
-            if (weatherDescription) {
-                const descLower = weatherDescription.toLowerCase();
-                if (descLower.includes('rain') || descLower.includes('drizzle')) {
-                    score -= 2;
-                } else if (descLower.includes('snow')) {
-                    score -= 3;
-                } else if (descLower.includes('thunderstorm')) {
-                    score -= 4;
-                } else if (descLower.includes('clear')) {
-                    score += 1;
-                }
-            }
-
-            score = Math.max(1, Math.min(10, Math.round(score)));
-
-            let description, explanation;
-            if (score >= 9) {
-                description = "Perfect";
-                explanation = "Ideal temperature and conditions for running.";
-            } else if (score >= 7) {
-                description = "Good";
-                explanation = "Favorable conditions with minor adjustments needed.";
-            } else if (score >= 5) {
-                description = "Moderate";
-                explanation = "Average conditions. Be mindful of hydration and pacing.";
-            } else if (score >= 3) {
-                description = "Challenging";
-                explanation = "Difficult conditions. Consider shortening your run or adjusting intensity.";
-            } else {
-                description = "Very Hard";
-                explanation = "Extreme conditions. Indoor training or rest may be advisable.";
-            }
-
-            return { score, description, explanation };
         }
 
         function getWeatherIcon(weatherId, weatherDescription) {
@@ -1161,7 +1195,7 @@
 
             const { score, description, explanation } = calculateRunningScore(temperature, humidity, weatherId, weatherDescription);
             document.getElementById('score-circle').textContent = score;
-            document.getElementById('score-circle').className = `score-circle score-${Math.floor((score - 1) / 2) * 2 + 1}-${Math.ceil(score / 2) * 2}`;
+            document.getElementById('score-circle').className = `score-circle score-${Math.floor((score - 1) / 3) * 3 + 1}-${Math.ceil(score / 3) * 3}`;
             document.getElementById('score-description').textContent = description;
             document.getElementById('score-explanation').textContent = explanation;
 
@@ -1274,6 +1308,7 @@
             const hrPercentage = (intendedHeartRate / maxHeartRate) * 100;
             let hrZone = zoneInfo.zone;
 
+            // Use the same score calculation as weather display
             const { score, description, explanation } = calculateRunningScore(temperature, humidity, null, null);
 
             let insights = "<strong>🔍 Mistral AI Training Insights:</strong><br><br>";
@@ -1294,7 +1329,45 @@
                 }
             }
 
+            // Use the same score as displayed in weather section
             insights += `🌟 <strong>Running Conditions (${score}/10 - ${description}):</strong> ${explanation}<br><br>`;
+
+            // Temperature-specific advice (based on Marathon Handbook)
+            if (temperature >= 5 && temperature <= 15) {
+                insights += "🌡️ <strong>Optimal Temperature:</strong> At 5-15°C, you're in the perfect range for running performance. ";
+                insights += "Your body can regulate temperature efficiently, reducing strain on your cardiovascular system. ";
+                insights += "Focus on maintaining your usual pace and fueling strategy.<br><br>";
+            } else if (temperature > 15 && temperature <= 20) {
+                insights += "🌡️ <strong>Good Temperature:</strong> At 15-20°C, conditions are still favorable but starting to warm up. ";
+                insights += "Consider increasing fluid intake slightly and wearing lighter clothing. ";
+                insights += "Performance may drop by ~2% compared to the optimal range.<br><br>";
+            } else if (temperature > 20) {
+                insights += "🌡️ <strong>Hot Weather:</strong> With temperatures above 20°C, your performance may decline by ~2% per degree. ";
+                insights += "Increase fluid intake to <strong>600-750ml/hour</strong> and sodium to <strong>700-900mg/hour</strong>. ";
+                insights += "Consider pre-cooling and wearing light, breathable clothing.<br><br>";
+            } else if (temperature < 5 && temperature >= 0) {
+                insights += "❄️ <strong>Cool Weather:</strong> At 0-5°C, dress in layers to maintain core temperature. ";
+                insights += "Your body works harder to stay warm, so focus on maintaining energy intake. ";
+                insights += "Aim for <strong>400-500ml/hour</strong> fluids and your usual carb intake.<br><br>";
+            } else if (temperature < 0) {
+                insights += "❄️ <strong>Cold Weather:</strong> In sub-zero conditions, prioritize warmth and safety. ";
+                insights += "Dress in moisture-wicking layers, cover extremities, and consider shortening your run. ";
+                insights += "Hydration is still important even if you don't feel thirsty.<br><br>";
+            }
+
+            if (humidity > 80) {
+                insights += "💧 <strong>Very High Humidity:</strong> Sweat evaporation is significantly reduced. ";
+                insights += "Increase sodium intake by <strong>200-300mg/hour</strong> and consider reducing intensity. ";
+                insights += "Be extra mindful of hydration signs.<br><br>";
+            } else if (humidity > 60) {
+                insights += "💧 <strong>High Humidity:</strong> Sweat evaporation is less efficient. ";
+                insights += "Increase sodium intake by <strong>100-200mg/hour</strong> to compensate. ";
+                insights += "You may not realize how much you're sweating.<br><br>";
+            } else if (humidity < 30) {
+                insights += "🌬️ <strong>Low Humidity:</strong> Dry air can irritate airways. ";
+                insights += "Consider using a buff or scarf to warm and humidify inhaled air. ";
+                insights += "Hydration needs may be slightly lower but don't neglect fluids.<br><br>";
+            }
 
             // Training type specific insights
             if (trainingType === "race" || trainingType === "hard") {
@@ -1309,7 +1382,7 @@
                 const carbRecommendation = giTraining === "not-well-trained" ? "30-40g" : "40-50g";
                 insights += `🏃 <strong>Moderate Intensity (${hrZone}):</strong> For moderate runs, `;
                 insights += `aim for <strong>${carbRecommendation}/hour</strong> of carbs. `;
-                insights += "This is a good zone for building endurance.<br><br>";
+                insights += "This is a great zone for building endurance.<br><br>";
             } else if (trainingType === "easy") {
                 insights += `🚶 <strong>Easy Intensity (${hrZone}):</strong> Focus on hydration (<strong>400-500ml/hour</strong>) and moderate carbs (<strong>30-40g/hour</strong>). `;
                 insights += "Use this session to practice fueling strategies for race day.<br><br>";
@@ -1318,23 +1391,6 @@
                 insights += `⚡ <strong>Interval Training (${hrZone}):</strong> For interval sessions with mixed intensities, `;
                 insights += `aim for <strong>${carbRecommendation}/hour</strong> of carbs. `;
                 insights += "Focus on recovery between intervals with fluids and electrolytes.<br><br>";
-            }
-
-            if (temperature > 25) {
-                insights += "🌡️ <strong>Hot Weather:</strong> With temperatures above 25°C, your sweat rate will increase. ";
-                insights += "Increase fluid intake to <strong>600-750ml/hour</strong> and sodium to <strong>700-900mg/hour</strong>. ";
-                insights += "Consider pre-cooling with ice towels or cold water before starting. ";
-                insights += "Wear light, breathable clothing and avoid cotton.<br><br>";
-            } else if (temperature < 10) {
-                insights += "❄️ <strong>Cold Weather:</strong> In cold conditions, you may not feel as thirsty but still need fluids. ";
-                insights += "Aim for <strong>400-500ml/hour</strong> and maintain your carb intake. ";
-                insights += "Dress in moisture-wicking layers to stay warm without overheating.<br><br>";
-            }
-
-            if (humidity > 70) {
-                insights += "💧 <strong>High Humidity:</strong> Sweat evaporation is less efficient in humid conditions. ";
-                insights += "Increase sodium intake by <strong>200-300mg/hour</strong> to compensate for higher sweat losses. ";
-                insights += "Be extra mindful of hydration, as you may not realize how much you're sweating.<br><br>";
             }
 
             if (duration > 2) {
@@ -1373,7 +1429,7 @@
 
             if (location) {
                 insights += "🌍 <strong>Location:</strong> " + location + ". ";
-                if (temperature > 25 && humidity > 70) {
+                if (temperature > 20 && humidity > 70) {
                     insights += "Hot and humid conditions here can be challenging. ";
                     insights += "Start hydrated, and consider running during cooler parts of the day.<br><br>";
                 }
@@ -1596,6 +1652,7 @@
                 let tempFluidAdjustment = 0;
                 if (temperature > 30) tempFluidAdjustment = 200;
                 else if (temperature > 25) tempFluidAdjustment = 100;
+                else if (temperature > 20) tempFluidAdjustment = 50;
 
                 const humidityFluidAdjustment = humidity > 70 ? 50 : 0;
                 const intensityFluidAdjustment = (hrZone.includes("Zone 4") || hrZone.includes("Zone 3-4")) ? 100 : 0;
@@ -1870,7 +1927,13 @@
 
         function createTimeline(schedule, duration) {
             const timelineBar = document.getElementById('timeline-bar');
+            // Clear previous timeline elements
             timelineBar.innerHTML = '';
+            const parent = timelineBar.parentNode;
+            const labels = parent.querySelectorAll('.timeline-label');
+            labels.forEach(label => label.remove());
+            const icons = parent.querySelectorAll('.intake-icon');
+            icons.forEach(icon => icon.remove());
 
             const totalMinutes = duration * 60;
 
@@ -1885,7 +1948,7 @@
                 label.className = 'timeline-label';
                 label.textContent = formatTime(i);
                 label.style.left = `${(i / totalMinutes) * 100}%`;
-                timelineBar.parentNode.appendChild(label);
+                parent.appendChild(label);
             }
 
             schedule.forEach(item => {
@@ -1912,7 +1975,7 @@
                 icon.innerHTML = iconHtml;
                 icon.setAttribute('data-tooltip', tooltip);
 
-                timelineBar.parentNode.appendChild(icon);
+                parent.appendChild(icon);
             });
         }
 
